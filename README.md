@@ -44,6 +44,9 @@ python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 
+uaere demo --nodes 8 --port 8765          # browser GUI + Unity JSON
+# open http://127.0.0.1:8765/
+
 uaere data summarize --n 64 --seed 0
 uaere twin --scenario busy_strait --n 16 --out artifacts/twin
 uaere kg --out artifacts/kg/marine_acoustic.ttl
@@ -57,8 +60,13 @@ It writes `artifacts/paper/suite.md` and `suite.json`. A reference run
 (seed 0) gave trust ROC-AUC **0.916** vs energy-threshold **0.069**,
 ontology hit-rate **1.00**, and ~32× less energy than always-on L3.
 
-**Full operator manual (every flag, the Python API, troubleshooting):**
-[`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
+**Never used this stack?** Read [`docs/BEGINNER.md`](docs/BEGINNER.md) first
+(plain language + 60-second viva script).
+
+**Operator manual:** [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)  
+**Gantt + flowcharts:** [`docs/DIAGRAMS.md`](docs/DIAGRAMS.md)  
+**Cheap-sensor swarm / Pi:** [`docs/RASPBERRY_PI.md`](docs/RASPBERRY_PI.md)  
+**Is this patentable?** [`docs/UNIQUENESS.md`](docs/UNIQUENESS.md) (not legal advice)
 
 If `uaere` is not on `PATH`: `export PYTHONPATH=src` and
 `python -m uaere …`.

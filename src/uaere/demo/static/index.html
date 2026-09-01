@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AHAIF — Underwater Acoustic Swarm Twin</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <div class="mark">AHAIF</div>
+      <div>
+        <h1>Adaptive Hierarchical Acoustic Intelligence</h1>
+        <p>Event-level trust · cheap hydrophone swarm · digital twin (TRL-4)</p>
+      </div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+  </header>
+
+  <main>
+    <section class="stage">
+      <canvas id="sea" width="1100" height="640"></canvas>
+      <div class="legend">
+        <span><i class="dot m4"></i> Cortex-M / STM32</span>
+        <span><i class="dot esp"></i> ESP32</span>
+        <span><i class="dot pi"></i> Raspberry Pi</span>
+        <span><i class="dot src"></i> Acoustic source</span>
+        <span><i class="line"></i> Neighbour wake (L4)</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <div class="env" id="env"></div>
+      <h2>Selected node</h2>
+      <div id="inspector" class="inspector">Click a node in the field.</div>
+      <h2>What you are seeing</h2>
+      <ol class="story">
+        <li>One physical sound exists in the ocean.</li>
+        <li>Many <em>cheap</em> hydrophones hear a weaker or stronger copy of it.</li>
+        <li>Each node scores <strong>the event</strong>, not the neighbour’s reputation.</li>
+        <li>Uncertain nodes ask two neighbours (magenta links) before paying for causal explanation.</li>
+        <li>Only high-trust, field-confirmed events get a knowledge-graph sentence.</li>
+      </ol>
+      <div class="controls">
+        <button id="btnPause">Pause</button>
+        <button id="btnStep">Step</button>
+        <a class="ghost" href="/api/state" target="_blank">Raw JSON (Unity)</a>
+      </div>
+    </aside>
+  </main>
+  <footer>
+    Capstone · VIT · Embargoed until patent filing · Unity polls <code>/api/state</code>
+  </footer>
+  <script src="/app.js"></script>
+</body>
+</html>

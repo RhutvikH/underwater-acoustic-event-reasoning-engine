@@ -227,7 +227,7 @@ def run_paper_suite(
             "trust_beats_energy_auc": bool(trust_auc > energy_auc),
             "gated_less_energy": energy_ok,
             "kg_chain_on_true_events": bool(ontology_hit > 0),
-            "five_device_profiles": len(hw_rows) == 5,
+            "five_device_profiles": len(hw_rows) >= 5,
             "security_demo": tamper_caught and gd32_refused,
         },
     }

@@ -41,7 +41,7 @@ uaere = "uaere.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-uaere = ["py.typed", "kg/ontology.yaml"]
+uaere = ["py.typed", "kg/ontology.yaml", "demo/static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -49,7 +49,9 @@ def test_stm32_allowed():
 
 def test_five_profiles_positive_energy():
     macs = {0: 1e5, 1: 1e6, 2: 5e5, 3: 2e3}
-    assert len(PROFILES) == 5
+    assert len(PROFILES) >= 5
+    assert "raspberry_pi4" in PROFILES
+    assert "raspberry_pi_zero2" in PROFILES
     for p in PROFILES.values():
         assert compute_energy_j(ExecutionLevel.L1, macs, p) > 0
 

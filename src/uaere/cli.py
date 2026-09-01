@@ -1,4 +1,4 @@
-"""uaere train|eval|twin|data — never NotImplementedError on the CLI path."""
+"""uaere CLI — eval, twin, demo, swarm, edge. Never NotImplementedError on a supported path."""
 
 from __future__ import annotations
 
@@ -43,6 +43,23 @@ def main(argv: list[str] | None = None) -> int:
 
     kg = sub.add_parser("kg", help="export marine acoustic KG")
     kg.add_argument("--out", default="artifacts/kg/marine_acoustic.ttl")
+
+    dm = sub.add_parser("demo", help="live swarm GUI + Unity JSON twin")
+    dm.add_argument("--nodes", type=int, default=8)
+    dm.add_argument("--scenario", default="busy_strait")
+    dm.add_argument("--seed", type=int, default=0)
+    dm.add_argument("--port", type=int, default=8765)
+    dm.add_argument("--seconds", type=float, default=0.0, help="0 = until Ctrl-C")
+
+    sw = sub.add_parser("swarm", help="run N cheap nodes for one tick (no GUI)")
+    sw.add_argument("--nodes", type=int, default=8)
+    sw.add_argument("--ticks", type=int, default=5)
+    sw.add_argument("--scenario", default="busy_strait")
+    sw.add_argument("--seed", type=int, default=0)
+
+    ed = sub.add_parser("edge", help="simulate Raspberry Pi field on this machine")
+    ed.add_argument("--n", type=int, default=4)
+    ed.add_argument("--seed", type=int, default=0)
 
     args = p.parse_args(argv)
     if args.cmd == "eval":
@@ -92,6 +109,55 @@ def main(argv: list[str] | None = None) -> int:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(g.to_turtle(), encoding="utf-8")
         print(f"wrote {path} ({g.n_nodes} nodes, {g.n_edges} edges)")
+        return 0
+    if args.cmd == "demo":
+        from uaere.demo.server import serve_demo
+        import time
+
+        srv = serve_demo(n_nodes=args.nodes, scenario=args.scenario, seed=args.seed, port=args.port)
+        print(f"AHAIF twin GUI  → {srv.url}")
+        print(f"Unity JSON      → {srv.url}api/state")
+        print("Ctrl-C to stop.")
+        try:
+            if args.seconds > 0:
+                time.sleep(args.seconds)
+            else:
+                while True:
+                    time.sleep(1)
+        except KeyboardInterrupt:
+            pass
+        srv.stop()
+        return 0
+    if args.cmd == "swarm":
+        from uaere.swarm.field import SwarmField, tick_to_json
+
+        field = SwarmField(n_nodes=args.nodes, scenario=args.scenario, seed=args.seed)
+        field.warmup()
+        last = None
+        for _ in range(args.ticks):
+            last = field.step()
+        print(json.dumps(tick_to_json(last), indent=2, default=float))
+        return 0
+    if args.cmd == "edge":
+        from uaere.classify.train import extract_features, train_evidential
+        from uaere.edge.runtime import simulate_pi_field
+        from uaere.kg.graph import load_kg
+        from uaere.pipeline import AhaifPipeline
+        from uaere.representation.env_norm import AdaptiveNormalizer
+        from uaere.trust.trust_score import TrustEngine
+        from uaere.twin.render import TwinRenderer
+        from uaere.types import PolicyVector
+
+        recs = TwinRenderer("busy_strait", seed=args.seed).render_dataset(max(args.n, 16))
+        head = train_evidential(extract_features(recs), steps=80, seed=args.seed)
+        pipe = AhaifPipeline(
+            trust=TrustEngine(head),
+            kg=load_kg(),
+            policy=PolicyVector(0.2, 0.4, 0.65, device_id="raspberry_pi_zero2", require_authenticated=False),
+            normalizer=AdaptiveNormalizer(32),
+        )
+        out = simulate_pi_field(pipe, recs, n=args.n)
+        print(json.dumps(out, indent=2, default=float))
         return 0
     return 2
 

@@ -74,6 +74,9 @@ python -m uaere --help
 From the repo root, with the venv active:
 
 ```bash
+# 0. Live swarm GUI (the presentation). Browser: http://127.0.0.1:8765/
+uaere demo --nodes 8 --port 8765
+
 # 1. See what the twin thinks a busy strait sounds like (class mix)
 uaere data summarize --n 64 --seed 0
 
@@ -205,6 +208,31 @@ Fits a class-balanced multinomial logistic on Mel statistics, then lifts
 \(\hat p\) to a Dirichlet via \(\alpha = 1 + \tau\hat p\)
 (\(\tau=20\)). Writes `evidential_head.npz`. The paper suite **retrains**
 its own head; this command is for inspection and for the Python API below.
+
+### `uaere demo` (presentation GUI + Unity feed)
+
+```bash
+uaere demo --nodes 8 --port 8765
+```
+
+Open http://127.0.0.1:8765/ — live cheap-sensor field, neighbour-wake
+links, click-to-inspect. Unity polls `/api/state` (see `unity/AHAIF/`).
+
+### `uaere swarm`
+
+One-shot JSON of N nodes sharing one event (no browser).
+
+```bash
+uaere swarm --nodes 8 --ticks 5 --seed 0
+```
+
+### `uaere edge`
+
+Laptop stand-in for Raspberry Pi Zero 2 W nodes.
+
+```bash
+uaere edge --n 4 --seed 0
+```
 
 ### `uaere kg`
 
