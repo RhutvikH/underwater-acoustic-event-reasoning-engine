@@ -1,0 +1,14 @@
+temperature_c: 8.0
+salinity_psu: 34.0
+depth_m: 60.0
+sea_state: 5
+turbulence: 0.45
+ice_keel: 0.0
+mix:
+  tug: 0.10
+  cargo: 0.10
+  tanker: 0.08
+  passenger: 0.08
+  geophony: 0.40
+  reject: 0.18
+  artifact: 0.06

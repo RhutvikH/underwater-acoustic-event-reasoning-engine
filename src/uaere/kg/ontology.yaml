@@ -1,0 +1,49 @@
+# Compact Marine Acoustic Knowledge Graph. Hand-authored, ~1e2 nodes.
+# Node types: EventType, Cause, Environment, SensorArtifact, VesselClass, Taxon
+# Relations: radiates, caused_by, confusable_with, requires_env, incompatible_with, observed_as
+
+nodes:
+  - {id: event.vessel_pass, type: EventType, label: "vessel passage"}
+  - {id: event.tug_pass, type: EventType, label: "tug passage"}
+  - {id: event.cargo_pass, type: EventType, label: "cargo passage"}
+  - {id: event.tanker_pass, type: EventType, label: "tanker passage"}
+  - {id: event.passenger_pass, type: EventType, label: "passenger ship passage"}
+  - {id: event.biological, type: EventType, label: "biological vocalization"}
+  - {id: event.geophony, type: EventType, label: "wind-wave geophony"}
+  - {id: event.artifact, type: EventType, label: "sensor artifact"}
+  - {id: event.ambient, type: EventType, label: "ambient noise"}
+
+  - {id: cause.vessel.tug, type: VesselClass, label: "tug", cues: {f_lo: 10, f_hi: 400, blade_hz: 18}}
+  - {id: cause.vessel.cargo, type: VesselClass, label: "cargo ship", cues: {f_lo: 30, f_hi: 800, blade_hz: 25}}
+  - {id: cause.vessel.tanker, type: VesselClass, label: "oil tanker", cues: {f_lo: 15, f_hi: 180, blade_hz: 12}}
+  - {id: cause.vessel.passenger, type: VesselClass, label: "passenger ship", cues: {f_lo: 80, f_hi: 2500, blade_hz: 60}}
+  - {id: cause.taxon.odontocete, type: Taxon, label: "odontocete click-train", cues: {f_lo: 300, f_hi: 5000}}
+  - {id: cause.env.wind_waves, type: Environment, label: "wind-driven surface noise", cues: {f_lo: 800, f_hi: 6000}, sea_state_min: 3}
+  - {id: cause.env.rain, type: Environment, label: "rain noise", cues: {f_lo: 1000, f_hi: 8000}, sea_state_min: 3}
+  - {id: cause.env.ambient, type: Environment, label: "Wenz ambient", cues: {f_lo: 20, f_hi: 1000}}
+  - {id: cause.sensor.clipping, type: SensorArtifact, label: "ADC clipping"}
+  - {id: cause.sensor.dropout, type: SensorArtifact, label: "dropout fault"}
+  - {id: cause.sensor.gain_wander, type: SensorArtifact, label: "gain wander"}
+
+edges:
+  - {src: cause.vessel.tug, rel: radiates, dst: event.tug_pass}
+  - {src: cause.vessel.cargo, rel: radiates, dst: event.cargo_pass}
+  - {src: cause.vessel.tanker, rel: radiates, dst: event.tanker_pass}
+  - {src: cause.vessel.passenger, rel: radiates, dst: event.passenger_pass}
+  - {src: event.tug_pass, rel: caused_by, dst: cause.vessel.tug}
+  - {src: event.cargo_pass, rel: caused_by, dst: cause.vessel.cargo}
+  - {src: event.tanker_pass, rel: caused_by, dst: cause.vessel.tanker}
+  - {src: event.passenger_pass, rel: caused_by, dst: cause.vessel.passenger}
+  - {src: event.biological, rel: caused_by, dst: cause.taxon.odontocete}
+  - {src: event.geophony, rel: caused_by, dst: cause.env.wind_waves}
+  - {src: event.artifact, rel: caused_by, dst: cause.sensor.clipping}
+  - {src: event.ambient, rel: caused_by, dst: cause.env.ambient}
+  - {src: event.tug_pass, rel: observed_as, dst: event.vessel_pass}
+  - {src: event.cargo_pass, rel: observed_as, dst: event.vessel_pass}
+  - {src: event.tanker_pass, rel: observed_as, dst: event.vessel_pass}
+  - {src: event.passenger_pass, rel: observed_as, dst: event.vessel_pass}
+  - {src: event.tug_pass, rel: confusable_with, dst: event.tanker_pass}
+  - {src: event.geophony, rel: confusable_with, dst: event.artifact}
+  - {src: cause.env.rain, rel: requires_env, dst: event.geophony}
+  - {src: cause.env.rain, rel: incompatible_with, dst: event.tug_pass}
+  - {src: cause.env.wind_waves, rel: incompatible_with, dst: event.tanker_pass}

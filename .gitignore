@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# AHAIF artifacts (models, twin traces, paper tables)
+artifacts/
+data/raw/

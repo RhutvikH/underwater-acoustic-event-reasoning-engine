@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uaere"
+version = "0.1.0"
+description = "Adaptive Hierarchical Acoustic Intelligence Framework (AHAIF) for underwater acoustic event reasoning"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary — embargoed until patent filing" }
+authors = [
+  { name = "Rhutvik Hegde" },
+  { name = "Kalyani Manoj" },
+]
+keywords = [
+  "underwater acoustics",
+  "event-level trust",
+  "knowledge graph",
+  "digital twin",
+  "tinyml",
+]
+dependencies = [
+  "numpy>=1.26",
+  "scipy>=1.11",
+  "scikit-learn>=1.3",
+  "networkx>=3.2",
+  "pyyaml>=6.0",
+  "pydantic>=2.0",
+  "cryptography>=42.0",
+  "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[project.scripts]
+uaere = "uaere.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+uaere = ["py.typed", "kg/ontology.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]

@@ -1,0 +1,21 @@
+seed: 0
+data:
+  sample_rate: 16000
+  window_s: 1.0
+  n_mels: 32
+  n_fft: 512
+  hop_length: 256
+  n_classes: 5
+model:
+  hidden: 32
+  adaptation_alpha: 0.05
+twin:
+  scenario: busy_strait
+  n_nodes: 4
+  seed: 0
+  duration_s: 30.0
+eval:
+  seeds: [0, 1, 2]
+  n_bootstrap: 1000
+  alpha: 0.05
+  reliability_bins: 10
