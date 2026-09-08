@@ -3,16 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AHAIF — Underwater Acoustic Swarm Twin</title>
+  <title>AHAIF live twin — cheap hydrophone swarm</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,500;1,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
+  <div id="coach" class="coach">
+    <div class="coach-card">
+      <p class="eyebrow">How to read this in 20 seconds</p>
+      <h2>One sound. Many cheap ears. They ask before they spend.</h2>
+      <ol>
+        <li><b style="color:var(--amber)">Amber pulse</b> — the real acoustic source (ship or storm).</li>
+        <li><b style="color:var(--cyan)">Coloured dots</b> — cheap hydrophones (blue STM32, green ESP32, peach Pi).</li>
+        <li><b style="color:var(--mag)">Magenta dashes</b> — “I’m unsure, please listen too” (L4 neighbour-wake).</li>
+        <li><b style="color:var(--gold)">Gold ring</b> — that node paid for a knowledge-graph sentence (L3).</li>
+      </ol>
+      <p class="hint">Click any node. The right panel is that node’s exam sheet. This is <em>event</em> trust, not “is my neighbour hacked?”</p>
+      <button id="btnGotIt" type="button">Got it — show the ocean</button>
+    </div>
+  </div>
+
   <header class="top">
     <div class="brand">
-      <div class="mark">AHAIF</div>
+      <div class="mark" aria-hidden="true">AH</div>
       <div>
-        <h1>Adaptive Hierarchical Acoustic Intelligence</h1>
-        <p>Event-level trust · cheap hydrophone swarm · digital twin (TRL-4)</p>
+        <h1>AHAIF live twin</h1>
+        <p>Event-level trust · cheap swarm · TRL-4 lab</p>
       </div>
     </div>
     <div class="kpis" id="kpis"></div>
@@ -20,36 +38,38 @@
 
   <main>
     <section class="stage">
-      <canvas id="sea" width="1100" height="640"></canvas>
+      <div class="stage-chrome">
+        <span id="badge" class="badge">warming up…</span>
+        <span class="hint-inline">Click a node · Space pauses</span>
+      </div>
+      <canvas id="sea" width="1200" height="700" aria-label="Overhead view of the hydrophone field"></canvas>
       <div class="legend">
-        <span><i class="dot m4"></i> Cortex-M / STM32</span>
+        <span><i class="dot m4"></i> STM32</span>
         <span><i class="dot esp"></i> ESP32</span>
         <span><i class="dot pi"></i> Raspberry Pi</span>
-        <span><i class="dot src"></i> Acoustic source</span>
-        <span><i class="line"></i> Neighbour wake (L4)</span>
+        <span><i class="dot src"></i> Source</span>
+        <span><i class="line"></i> Neighbour wake</span>
+        <span><i class="ring"></i> Explaining (L3)</span>
       </div>
     </section>
     <aside class="panel">
       <div class="env" id="env"></div>
-      <h2>Selected node</h2>
-      <div id="inspector" class="inspector">Click a node in the field.</div>
-      <h2>What you are seeing</h2>
-      <ol class="story">
-        <li>One physical sound exists in the ocean.</li>
-        <li>Many <em>cheap</em> hydrophones hear a weaker or stronger copy of it.</li>
-        <li>Each node scores <strong>the event</strong>, not the neighbour’s reputation.</li>
-        <li>Uncertain nodes ask two neighbours (magenta links) before paying for causal explanation.</li>
-        <li>Only high-trust, field-confirmed events get a knowledge-graph sentence.</li>
-      </ol>
+      <h2>This node</h2>
+      <div id="inspector" class="inspector">Waiting for the first tick…</div>
+      <h2>Last explanations</h2>
+      <ul id="feed" class="feed"></ul>
+      <h2>Why a swarm</h2>
+      <p class="blurb">A single energy threshold wakes on storms. A field of inexpensive nodes hears the <em>same</em> physical event at different ranges, confirms it, and only then spends battery on a causal sentence.</p>
       <div class="controls">
-        <button id="btnPause">Pause</button>
-        <button id="btnStep">Step</button>
-        <a class="ghost" href="/api/state" target="_blank">Raw JSON (Unity)</a>
+        <button id="btnPause" type="button">Pause</button>
+        <button id="btnStep" type="button">Step</button>
+        <button id="btnCoach" type="button" class="ghost">How to read</button>
+        <a class="ghost" href="/api/state" target="_blank" rel="noreferrer">JSON for Unity</a>
       </div>
     </aside>
   </main>
   <footer>
-    Capstone · VIT · Embargoed until patent filing · Unity polls <code>/api/state</code>
+    VIT capstone · embargoed until patent filing · Unity: <code>docs/UNITY.md</code>
   </footer>
   <script src="/app.js"></script>
 </body>

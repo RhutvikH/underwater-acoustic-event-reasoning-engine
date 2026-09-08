@@ -47,3 +47,12 @@ edges:
   - {src: cause.env.rain, rel: requires_env, dst: event.geophony}
   - {src: cause.env.rain, rel: incompatible_with, dst: event.tug_pass}
   - {src: cause.env.wind_waves, rel: incompatible_with, dst: event.tanker_pass}
+  # Dung: a classified tug rules out rain/wind in calm water (why-not)
+  - {src: event.tug_pass, rel: attacks, dst: cause.env.rain, unless_sea_state_ge: 3}
+  - {src: event.tug_pass, rel: attacks, dst: cause.env.wind_waves, unless_sea_state_ge: 4}
+  - {src: event.cargo_pass, rel: attacks, dst: cause.env.rain, unless_sea_state_ge: 3}
+  - {src: event.tanker_pass, rel: attacks, dst: cause.env.rain, unless_sea_state_ge: 3}
+  - {src: event.passenger_pass, rel: attacks, dst: cause.env.rain, unless_sea_state_ge: 3}
+  - {src: event.cargo_pass, rel: attacks, dst: cause.env.wind_waves, unless_sea_state_ge: 4}
+  - {src: event.tanker_pass, rel: attacks, dst: cause.env.wind_waves, unless_sea_state_ge: 4}
+  - {src: event.passenger_pass, rel: attacks, dst: cause.env.wind_waves, unless_sea_state_ge: 4}

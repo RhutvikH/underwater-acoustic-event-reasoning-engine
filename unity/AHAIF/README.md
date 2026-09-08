@@ -1,5 +1,9 @@
 # AHAIF Unity digital twin (visualization layer)
 
+**Full walkthrough (camera, fog, two laptops, JSON schema):** see
+[`docs/UNITY.md`](../../docs/UNITY.md) in the repo root. This file is the
+short version.
+
 Unity does **not** re-simulate Mackenzie sound speed or Thorp absorption.
 Python `uaere demo` *is* the scientific twin. Unity is the 3D stage you
 stand in front of during a viva / investor demo.
@@ -46,7 +50,7 @@ the same machine can poll localhost.
 | Unity object | AHAIF concept |
 |--------------|---------------|
 | Sphere per node, colour by profile | cheap heterogeneous field |
-| Sphere scale ∝ wake confidence | event-level \(C_{\mathrm{wake}}\) |
+| Sphere scale proportional to wake confidence | event-level `C_wake` |
 | Gold ring when level ≥ 3 | KG explanation paid for |
 | Magenta line | L4 neighbour-wake (the swarm specialty) |
 | Amber source | one physical event many ears hear |

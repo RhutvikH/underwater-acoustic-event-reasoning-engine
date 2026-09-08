@@ -63,8 +63,8 @@ Quiet but structured ship noise can still climb the ladder.
 hydrophones). We validate in this lab so we do not need a research
 vessel for TRL-4. Unity is the 3D *skin*; Python is the physics.
 
-**Event-level trust.** A number \(T(e)\) and a wake confidence
-\(C_{\mathrm{wake}}\) for *this one-second clip*, not for the sensor’s
+**Event-level trust.** A number `T(e)` and a wake confidence
+`C_wake` for *this one-second clip*, not for the sensor’s
 lifetime reputation.
 
 **Knowledge graph.** A small map of causes (tug, rain, clipping) and
@@ -99,7 +99,7 @@ uaere demo --nodes 8 --port 8765
 4. You should see an overhead ocean, coloured nodes, an amber source,
    magenta lines when neighbours are asked, and a gold ring when a node
    pays for an explanation.
-5. Click a node. Read \(C_{\mathrm{wake}}\), \(T(e)\), battery, sentence.
+5. Click a node. Read `C_wake`, `T(e)`, battery, sentence.
 6. Ctrl-C in the terminal stops it.
 
 **If the venv does not exist:**
@@ -140,6 +140,9 @@ See `docs/RASPBERRY_PI.md`.
 - Do not say we invented underwater sound-speed equations (Mackenzie,
   Thorp are 1960s–80s). We *use* them inside a new *system*.
 - Do not say “AI chatbot.” There is no LLM in the loop on purpose.
+
+If you only remember one index of documents, it is
+[`docs/GUIDE_INDEX.md`](GUIDE_INDEX.md).
 
 ## Map of the rest of the binder
 

@@ -72,7 +72,7 @@ flowchart LR
 ```mermaid
 flowchart TD
     X[1 s hydrophone window] --> L0[L0 shape DSP]
-    L0 -->|logistic of vector not energy θ| Q{Near silence?}
+    L0 -->|surprise admit not energy theta| Q{Ocean matches model?}
     Q -->|yes| S[Sleep]
     Q -->|no| L1[L1 Mel + env-norm + Dirichlet]
     L1 --> C[C_wake and T of e]

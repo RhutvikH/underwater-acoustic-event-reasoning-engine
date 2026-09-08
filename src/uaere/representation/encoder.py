@@ -41,7 +41,7 @@ def _pw_conv(x: FloatArray, w: FloatArray, b: FloatArray) -> FloatArray:
 class TinyCNN:
     c1: int = 8
     c2: int = 16
-    n_classes: int = 5
+    n_classes: int = 6
     seed: int = 0
 
     def __post_init__(self) -> None:

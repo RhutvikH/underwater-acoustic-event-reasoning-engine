@@ -25,4 +25,4 @@ Each row: the paper does **not** disclose the combination “event-level trust-g
 | 30–32 | Kalman / TOA / BlueBuzz | tracking, comms | no | no | modem |
 | 33–35 | CoralBuddy / UWA LSTM / ocean RS | platforms / channels | no | no | no |
 
-**Closest art and distinction.** (3) scores sensors, we score events. (11) multi-objective *routes packets*, we multi-objective *admit inference levels*. (20) is a terrestrial audio KG with foundation models; ours is a compact marine KG with a counterfactual band-mask, TinyML-legal. (16) puts uncertainty on the label; we put it into \(T(e)\) and then into \(\pi\).
+**Closest art and distinction.** (3) scores sensors, we score events. (11) multi-objective *routes packets*, we multi-objective *admit inference levels*. (20) is a terrestrial audio KG with foundation models; ours is a compact marine KG with a counterfactual band-mask, TinyML-legal. (16) puts uncertainty on the label; we put it into $T(e)$ and then into $\pi$.

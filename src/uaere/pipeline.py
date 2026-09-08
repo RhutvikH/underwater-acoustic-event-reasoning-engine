@@ -15,7 +15,8 @@ from uaere.math.energy import compute_energy_j
 from uaere.policy.runtime_gate import RuntimeGate
 from uaere.representation.encoder import TinyCNN, cnn_macs
 from uaere.representation.env_norm import AdaptiveNormalizer
-from uaere.representation.l0_dsp import extract_l0, l0_admit_score
+from uaere.representation.l0_dsp import extract_l0
+from uaere.representation.predictive import surprise, surprise_admit
 from uaere.representation.l1_tf import log_mel
 from uaere.security.hal import SecureHAL
 from uaere.trust.trust_score import TrustEngine
@@ -60,8 +61,9 @@ class AhaifPipeline:
             # already booted by caller; still tag the result
             pass
         l0 = extract_l0(rec.waveform, rec.sample_rate)
-        admit = l0_admit_score(l0)
-        # L0-only if the logistic of φ0 is very small (near-silence), not energy θ
+        S = surprise(rec.waveform, rec.sample_rate, rec.environment)
+        admit = surprise_admit(S)
+        # L0-only if predictive-coding surprise is small (ocean matches the generative model)
         if admit < 0.15:
             profile = self.orch.place(ExecutionLevel.L0)
             e = compute_energy_j(ExecutionLevel.L0, self.macs, profile)
@@ -81,7 +83,8 @@ class AhaifPipeline:
                 energy_j=e,
                 latency_s=self.macs[0] / (profile.cpu_mhz * 1e6),
                 authenticated=self.hal is not None,
-                reason="l0_near_silence_shape_gate",
+                reason="l0_low_surprise",
+                extras={"l0_admit": admit, "surprise": S, "firmware_ok": firmware_ok},
             )
 
         mel = log_mel(rec.waveform, rec.sample_rate)

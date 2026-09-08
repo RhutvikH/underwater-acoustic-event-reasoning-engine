@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from uaere.causal.argumentation import argue_causes
 from uaere.kg.graph import CLASS_TO_EVENT, MarineAcousticKG
 from uaere.types import EnvironmentState, EventClass, Explanation, FloatArray, WindowRecord
 
@@ -48,21 +49,33 @@ class CausalReasoner:
             )
         score, cid, meta, cf_ok = ranked[0]
         rejected = [c for _, c, _, ok in ranked[1:] if not ok]
+        arg = argue_causes(
+            self.kg,
+            [c for _, c, _, _ in ranked] + ["cause.env.rain", "cause.env.wind_waves"],
+            state,
+            event_id=event_id,
+        )
+        if arg.accepted:
+            cid = next((c for c in arg.accepted if any(c == r[1] for r in ranked)), arg.accepted[0])
+            meta = self.kg.meta.get(cid, meta)
+            score = next((s for s, c, _, _ in ranked if c == cid), score)
         chain = [
             "observation cues",
             event_id,
             cid,
             f"env sea_state={state.sea_state}",
             f"cf={'verified' if cf_ok else 'unverified'}",
+            f"dung_accepted={','.join(arg.accepted) or 'none'}",
         ]
         label = meta.get("label", cid)
+        why = f"WHY {label}: cues match {cid} in sea-state {state.sea_state}."
+        why_not = arg.why_not
         sentence = (
-            f"{label} is the top cause of {meta_event_label(event_id)} "
-            f"in sea-state {state.sea_state}; "
-            f"counterfactual {'verified' if cf_ok else 'unverified'}."
+            f"{why} "
+            f"Counterfactual {'verified' if cf_ok else 'unverified'}."
         )
-        if state.sea_state < 3 and cid.startswith("cause.env"):
-            sentence += " Environmental cause down-ranked (incompatible sea state)."
+        if why_not:
+            sentence += " WHY-NOT: " + "; ".join(why_not)
         return Explanation(
             event_type=event_id,
             cause_id=cid,
@@ -71,7 +84,11 @@ class CausalReasoner:
             sentence=sentence,
             score=float(score),
             counterfactual_verified=bool(cf_ok),
-            rejected_causes=rejected,
+            rejected_causes=rejected + arg.rejected,
+            why=why,
+            why_not=why_not,
+            accepted=arg.accepted,
+            attacks_fired=arg.attacks_fired,
         )
 
     def _cue_match(self, x: FloatArray, fs: int, cause_id: str) -> float:

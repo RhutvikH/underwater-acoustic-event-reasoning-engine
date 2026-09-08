@@ -1,8 +1,18 @@
 # Documentation map
 
+**Don’t know which file to open?** → [GUIDE_INDEX.md](GUIDE_INDEX.md)
+
 | Document | What it is |
 |----------|------------|
+| [GUIDE_INDEX.md](GUIDE_INDEX.md) | Which guide for which job |
 | [BEGINNER.md](BEGINNER.md) | Explain and run it with no background |
+| [DEVELOPER.md](DEVELOPER.md) | Modify the repo without AI |
+| [EVALUATION.md](EVALUATION.md) | Evaluator pass/fail conditions |
+| [UNITY.md](UNITY.md) | Unity 3D stage, step by step |
+| [MATH.md](MATH.md) | All equations, GitHub-rendered |
+| [DATASETS.md](DATASETS.md) | Twin / DeepShip / Watkins honesty |
+| [MODELS.md](MODELS.md) | Backbone registry, train / predict |
+| [IDEAS.md](IDEAS.md) | 50 ranked unique ideas |
 | [USER_GUIDE.md](USER_GUIDE.md) | Install, CLI, Python API, troubleshooting |
 | [UNIQUENESS.md](UNIQUENESS.md) | Novelty vs literature; patentability memo |
 | [DIAGRAMS.md](DIAGRAMS.md) | Gantt, flowcharts, swarm sequence |

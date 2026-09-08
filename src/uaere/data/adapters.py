@@ -103,3 +103,61 @@ class DeepShipAdapter:
 
 class ShipsEarAdapter(DeepShipAdapter):
     """Same windowing; folder names mapped through the marine ontology."""
+
+
+class WatkinsAdapter:
+    """Optional species-folder WAVs, all mapped to EventClass.BIOLOGICAL.
+
+    Not a species-SOTA trainer. Academic use of Watkins Best-of only.
+    Missing root ⇒ load() returns [].
+    """
+
+    def __init__(self, root: str | Path | None) -> None:
+        self.root = Path(root) if root else None
+
+    def available(self) -> bool:
+        return bool(self.root and self.root.exists())
+
+    def load(self) -> list[WindowRecord]:
+        if not self.available():
+            return []
+        recs: list[WindowRecord] = []
+        env = EnvironmentState()
+        health = SensorHealth()
+        for folder in sorted(self.root.iterdir()):
+            if not folder.is_dir():
+                continue
+            for wav in sorted(folder.glob("*.wav"))[:80]:
+                recs.extend(self._windows(wav, env, health))
+        return recs
+
+    def _windows(self, path: Path, env: EnvironmentState, health: SensorHealth) -> list[WindowRecord]:
+        from uaere.data.wavutil import read_wav, resample_linear
+        from uaere.types import WORKING_FS, WINDOW_SECONDS
+
+        x, fs = read_wav(path)
+        x = resample_linear(x, fs, WORKING_FS)
+        n = int(WORKING_FS * WINDOW_SECONDS)
+        hop = n
+        out: list[WindowRecord] = []
+        t = 0
+        i = 0
+        while t + n <= len(x) and i < 8:
+            out.append(
+                WindowRecord(
+                    waveform=x[t : t + n],
+                    sample_rate=WORKING_FS,
+                    environment=env,
+                    health_oracle=health,
+                    health_estimate=health,
+                    event_present=True,
+                    event_class=EventClass.BIOLOGICAL,
+                    cause_id="cause.taxon.odontocete",
+                    is_artifact=False,
+                    source_id=path.stem,
+                    t0_s=t / WORKING_FS,
+                )
+            )
+            t += hop
+            i += 1
+        return out

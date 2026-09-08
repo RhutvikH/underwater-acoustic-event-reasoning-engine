@@ -49,7 +49,31 @@ namespace AHAIF
                     nodes[n.node_id] = tr;
                 }
                 tr.position = ToU(n.xyz);
-                tr.localScale = Vector3.one * (0.18f + 0.35f * n.wake);
+                float pulse = n.level >= 3 ? 1.15f : 1f;
+                tr.localScale = Vector3.one * (0.18f + 0.35f * n.wake) * pulse;
+            }
+            DrawLinks(s);
+        }
+
+        void DrawLinks(TwinState s)
+        {
+            foreach (var lr in links) if (lr) Destroy(lr.gameObject);
+            links.Clear();
+            if (s.links == null) return;
+            foreach (var link in s.links)
+            {
+                if (!nodes.ContainsKey(link.src) || !nodes.ContainsKey(link.dst)) continue;
+                var go = new GameObject("link_" + link.src + "_" + link.dst);
+                go.transform.SetParent(transform);
+                var lr = go.AddComponent<LineRenderer>();
+                lr.positionCount = 2;
+                lr.SetPosition(0, nodes[link.src].position);
+                lr.SetPosition(1, nodes[link.dst].position);
+                lr.startWidth = 0.03f;
+                lr.endWidth = 0.03f;
+                lr.material = new Material(Shader.Find("Sprites/Default"));
+                lr.startColor = lr.endColor = new Color(0.89f, 0.36f, 1f);
+                links.Add(lr);
             }
         }
 

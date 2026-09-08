@@ -15,9 +15,9 @@ A hierarchy, not a wake-word pipeline:
 | Level | What runs | When |
 |-------|-----------|------|
 | L0 | DSP moments (energy, ZCR, centroid, flatness, residual) | always |
-| L1 | log-Mel + evidential Dirichlet trust \(T(e)\) | φ0 logistic admits |
-| L2 | Tiny depthwise CNN classifier | \(T \ge \tau_2\) |
-| L3 | Marine acoustic KG + counterfactual explanation | \(T \ge \tau_3\) |
+| L1 | log-Mel + evidential Dirichlet trust `T(e)` | surprise `S` admits |
+| L2 | Tiny depthwise CNN classifier | `T >= tau2` |
+| L3 | Marine acoustic KG + counterfactual explanation | `T >= tau3` |
 | L4 | Collaborative neighbour-wake | uncertain band |
 
 There is **no** `if energy > θ` in the live pipeline. The conventional energy
@@ -60,13 +60,16 @@ It writes `artifacts/paper/suite.md` and `suite.json`. A reference run
 (seed 0) gave trust ROC-AUC **0.916** vs energy-threshold **0.069**,
 ontology hit-rate **1.00**, and ~32× less energy than always-on L3.
 
-**Never used this stack?** Read [`docs/BEGINNER.md`](docs/BEGINNER.md) first
-(plain language + 60-second viva script).
+**Which document do I want?** [`docs/GUIDE_INDEX.md`](docs/GUIDE_INDEX.md)
 
-**Operator manual:** [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)  
-**Gantt + flowcharts:** [`docs/DIAGRAMS.md`](docs/DIAGRAMS.md)  
-**Cheap-sensor swarm / Pi:** [`docs/RASPBERRY_PI.md`](docs/RASPBERRY_PI.md)  
-**Is this patentable?** [`docs/UNIQUENESS.md`](docs/UNIQUENESS.md) (not legal advice)
+| Need | Open |
+|------|------|
+| Equations (GitHub math) | [`docs/MATH.md`](docs/MATH.md) |
+| Viva in 10 minutes | [`docs/BEGINNER.md`](docs/BEGINNER.md) then `uaere demo` |
+| Change the code, no AI | [`docs/DEVELOPER.md`](docs/DEVELOPER.md) |
+| Grade a run | [`docs/EVALUATION.md`](docs/EVALUATION.md) · `uaere evaluate` |
+| Unity | [`docs/UNITY.md`](docs/UNITY.md) |
+| Operator CLI | [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) |
 
 If `uaere` is not on `PATH`: `export PYTHONPATH=src` and
 `python -m uaere …`.

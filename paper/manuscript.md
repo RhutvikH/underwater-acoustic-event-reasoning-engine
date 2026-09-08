@@ -88,14 +88,14 @@ parallel prototypes.
 
 **Contributions.**
 
-- Event-level wake trust \(T(e)\) and \(C_{\mathrm{wake}}\), with no
+- Event-level wake trust $T(e)$ and $C_{\mathrm{wake}}$, with no
   constant energy threshold in the live detector.
-- Adaptive multi-level features \(\phi_0,\phi_1,\phi_2\) conditioned on a
-  twin environment state \(s\) (SSP, sea-state, turbulence, SNR).
+- Adaptive multi-level features $\phi_0,\phi_1,\phi_2$ conditioned on a
+  twin environment state $s$ (SSP, sea-state, turbulence, SNR).
 - A marine acoustic KG plus a cheap counterfactual band-mask; we do not
   claim Pearl identification.
-- NSGA-II over \(\pi=(\tau_1,\tau_2,\tau_3,m,d)\) with a Chebyshev knee at
-  runtime, and a proven energy strict-inequality for \(p_3<1\).
+- NSGA-II over $\pi=(\tau_1,\tau_2,\tau_3,m,d)$ with a Chebyshev knee at
+  runtime, and a proven energy strict-inequality for $p_3 \lt 1$.
 - Software-defined device profiles (Cortex-M4, ESP32-S3, RV32IMC, iCE40,
   Ethos-U55) and a protocol-level secure HAL.
 - A reproducible `uaere eval --suite paper` command that writes every
@@ -147,37 +147,37 @@ hardware/security policy say so.
 
 ## 3. Problem formulation
 
-Let \(x\in\mathbb{R}^{N}\) be a 1 s hydrophone window at \(f_s=16\,\mathrm{kHz}\).
-Let \(s\) be the environment state (temperature, salinity, depth, sea-state,
-SNR, turbulence, sound speed) and \(h\) a (noisy) sensor-health estimate
+Let $x\in\mathbb{R}^{N}$ be a 1 s hydrophone window at $f_s=16\,\mathrm{kHz}$.
+Let $s$ be the environment state (temperature, salinity, depth, sea-state,
+SNR, turbulence, sound speed) and $h$ a (noisy) sensor-health estimate
 (noise floor, clipping, drift, ADC bits, fault class). A label
-\(y\in\{0,1\}\) indicates vessel-event presence; a class
-\(c\in\{\mathrm{cargo},\mathrm{passenger},\mathrm{tanker},\mathrm{tug},\mathrm{reject}\}\)
+$y\in\{0,1\}$ indicates vessel-event presence; a class
+$c\in\{\mathrm{cargo},\mathrm{passenger},\mathrm{tanker},\mathrm{tug},\mathrm{reject}\}$
 is the Dirichlet support.
 
-A **policy** \(\pi=(\tau_1,\tau_2,\tau_3,m,d)\) maps a scalar event trust
-\(T(e)\) to an execution level \(L\in\{0,1,2,3,4\}\) and a device profile
-\(d\). The program is
+A **policy** $\pi=(\tau_1,\tau_2,\tau_3,m,d)$ maps a scalar event trust
+$T(e)$ to an execution level $L\in\{0,1,2,3,4\}$ and a device profile
+$d$. The program is
 
-\[
-\min_\pi F(\pi)=\big(f_{\mathrm{miss}},\,f_{\mathrm{fa}},\,E,\,L_{p99},\,\mathrm{ECE},\,-X\big)
-\]
+$$
+\min_\pi F(\pi)=\bigl(f_{\mathrm{miss}},\,f_{\mathrm{fa}},\,E,\,L_{p99},\,\mathrm{ECE},\,-X\bigr)
+$$
 
 subject to energy and latency budgets, authenticated inference when the
-security flag is set, and explanation coverage \(X\) on true events.
+security flag is set, and explanation coverage $X$ on true events.
 
-**Proposition 1.** Write \(E_{\mathrm{compute}}=c_0+p_1 c_1+p_2 c_2+p_3 c_3\)
-with \(c_k>0\). For any always-on L3 policy (\(p_1=p_2=p_3=1\)) and any
-gated policy with \(p_3<1\), \(E(\pi)<E(\pi_{\mathrm{on}})\). Implemented
+**Proposition 1.** Write $E_{\mathrm{compute}}=c_0+p_1 c_1+p_2 c_2+p_3 c_3$
+with $c_k \gt 0$. For any always-on L3 policy ($p_1=p_2=p_3=1$) and any
+gated policy with $p_3 \lt 1$, $E(\pi) \lt E(\pi_{\mathrm{on}})$. Implemented
 and unit-tested as `gated_energy_strictly_less`.
 
-**Proposition 2.** If \(T\) is a consistent estimator of the event
-posterior, the extra miss rate of a threshold \(\tau_3\) relative to the
+**Proposition 2.** If $T$ is a consistent estimator of the event
+posterior, the extra miss rate of a threshold $\tau_3$ relative to the
 Bayes threshold is at most the posterior mass between them
 (`gated_miss_bound`).
 
 There is **no** predetermined energy threshold in this program. Any
-\(\tau_k\) is a *decision variable* of \(\pi\), not a sensor constant.
+$\tau_k$ is a *decision variable* of $\pi$, not a sensor constant.
 
 ---
 
@@ -185,84 +185,86 @@ There is **no** predetermined energy threshold in this program. Any
 
 ### 4.1 Adaptive multi-level representation
 
-- \(\phi_0(x,s)\): band energy, zero-crossing rate, spectral centroid,
-  bandwidth, flatness, noise-residual. \(O(N\log N)\) via rFFT. Always
-  on. A logistic of the **vector** (default weights use flatness and
-  residual, not energy alone) admits L1. Near-silence sleeps.
-- \(\phi_1(x,s)\): 32-band log-Mel (STFT 512, hop 256), instance-normalised
-  and FiLM-modulated by \(\gamma(s),\beta(s)\). A running PSD EMA
-  \(\hat n_t=(1-\alpha)\hat n_{t-1}+\alpha\,\mathrm{PSD}(x_t)\) updates
+- $\phi_0(x,s)$: band energy, zero-crossing rate, spectral centroid,
+  bandwidth, flatness, noise-residual. $O(N\log N)$ via rFFT. Always
+  computed. **L0$\to$L1 admit is not this vector.** The live gate is
+  precision-weighted surprise $S$ against the twin Knudsen ambient
+  (`surprise_admit`); the node sleeps when $S$ is small (ocean matches
+  the generative model), including loud storms.
+- $\phi_1(x,s)$: 32-band log-Mel (STFT 512, hop 256), instance-normalised
+  and FiLM-modulated by $\gamma(s),\beta(s)$. A running PSD EMA
+  $\hat n_t=(1-\alpha)\hat n_{t-1}+\alpha\,\mathrm{PSD}(x_t)$ updates
   on non-event frames. CQT is an ablation (`log_cqt_proxy`).
-- \(\phi_2(x,s)\): depthwise-separable TinyCNN, 546 parameters, 484 kMAC /
+- $\phi_2(x,s)$: depthwise-separable TinyCNN, 546 parameters, 484 kMAC /
   window, 546 B INT8 — under the 250 KB budget by two orders of magnitude.
 
 ### 4.2 Dynamic Acoustic Trust and Wake Confidence Engine
 
 An evidential head maps Mel statistics to Dirichlet strengths. In the
 reference implementation the head is a class-balanced multinomial logistic
-lifted by \(\alpha=1+\tau\hat p\) (\(\tau=20\)), which preserves the
+lifted by $\alpha=1+\tau\hat p$ ($\tau=20$), which preserves the
 Dirichlet mean while giving a concentration that shrinks as the classifier
 becomes uncertain. Then
 
-\[
+$$
 \hat p=\frac{\alpha}{\sum_i\alpha_i},\quad
 u_{\mathrm{e}}=\frac{K}{\sum_i\alpha_i},\quad
 u_{\mathrm{a}}=1-\max_k\hat p_k,\quad
 C_{\mathrm{wake}}=1-\hat p_{\mathrm{reject}}.
-\]
+$$
 
-Health consistency \(\kappa(h)\in[0,1]\) down-weights clipping, faults,
+Health consistency $\kappa(h)\in[0,1]$ down-weights clipping, faults,
 shallow ADCs, and large clock drift. Environmental consistency
-\(\rho(s,x)\) is support for a *non-ambient* cause: low-frequency-heavy
+$\rho(s,x)$ is support for a *non-ambient* cause: low-frequency-heavy
 spectra in calm water score high; high-frequency geophony in high
 sea-state scores low — the opposite of an energy wake. Event trust is
 
-\[
-T(e)=\sigma\big(w_c C_{\mathrm{wake}}+w_h\kappa(h)+w_s\rho(s,x)-w_u(u_{\mathrm{a}}+u_{\mathrm{e}})+b\big).
-\]
+$$
+T(e)=\sigma\bigl(w_c C_{\mathrm{wake}}+w_h\kappa(h)+w_s\rho(s,x)-w_u(u_{\mathrm{a}}+u_{\mathrm{e}})+b\bigr).
+$$
 
-**Detection ROC uses \(C_{\mathrm{wake}}\).** The gate uses \(T(e)\).
+**Detection ROC uses $C_{\mathrm{wake}}$.** The gate uses $T(e)$.
 Confusing the two is how a storm fools an energy detector and how a
 well-calibrated reject class does not.
 
 The energy-threshold baseline (`EnergyThresholdBaseline`) sweeps STFT-band
-energy on the train split, picks Youden’s \(J\), and is imported **only**
+energy on the train split, picks Youden’s $J$, and is imported **only**
 by eval.
 
 ### 4.3 Marine acoustic KG and causal reasoner
 
-A hand-authored graph \(G=(V,E)\) with \(|V|=20\), \(|E|=21\) (Turtle
+A hand-authored graph $G=(V,E)$ with $|V|=20$, $|E|=21$ (Turtle
 export via `uaere kg`) has node types EventType, VesselClass, Taxon,
 Environment, SensorArtifact and relations `radiates`, `caused_by`,
 `confusable_with`, `requires_env`, `incompatible_with`, `observed_as`.
-Each cause carries spectral cues \((f_{\mathrm{lo}},f_{\mathrm{hi}})\)
+Each cause carries spectral cues $(f_{\mathrm{lo}},f_{\mathrm{hi}})$
 and optional `sea_state_min`.
 
-For a classified event \(\hat y\) the reasoner ranks `caused_by`
+For a classified event $\hat y$ the reasoner ranks `caused_by`
 neighbours by cue-band energy fraction times an environment prior, emits a
 3–6 step chain and a one-sentence gloss, and runs the counterfactual
 
-\[
-\mathrm{CF}(c,\hat y)=\mathbf{1}\big[\text{energy in cues of }c\text{ drops after a 20:1 mask}\big].
-\]
+$$
+\mathrm{CF}(c,\hat y)=\mathbf{1}\bigl[\text{energy in cues of }c\text{ drops after a 20:1 mask}\bigr].
+$$
 
 This is a feature-mask verification, not a structural causal model
 identification procedure. We state that limitation in the claims.
 
 ### 4.4 Escalation policy
 
-`RuntimeGate` is a staircase on \(T(e)\):
+`RuntimeGate` is a staircase on $T(e)$:
 
 | Condition | Level |
 |-----------|-------|
-| \(T<\tau_1\) | L0 sleep |
-| \(\tau_1\le T<\tau_2\) | L1 trust only |
-| \(\tau_2\le T<\tau_3\) | L2 TinyCNN |
-| \(T\ge\tau_3\) | L3 KG |
-| \(\tau_{\mathrm{collab,lo}}\le T\le\tau_{\mathrm{collab,hi}}\) | L4 TX neighbour-wake |
+| T < tau1 | L0 sleep |
+| tau1 <= T < tau2 | L1 trust only |
+| tau2 <= T < tau3 | L2 TinyCNN |
+| T >= tau3 | L3 KG |
+| tau_collab_lo <= T <= tau_collab_hi | L4 TX neighbour-wake |
 
 Offline, a compact NSGA-II (population 16, 8 generations in the paper
-suite; no pymoo dependency) evaluates \(F(\pi)\) on the twin replay.
+suite; no pymoo dependency) evaluates $F(\pi)$ on the twin replay.
 Runtime selects the weighted-Chebyshev knee of the non-dominated front.
 
 ### 4.5 Digital twin (the TRL-4 laboratory)
@@ -273,7 +275,7 @@ Five submodels, each a pure function:
    Knudsen/Wenz wind-noise PSD; turbulence as a high-frequency lift
    (flow-acoustic stress without a new module).
 2. **Propagation.** Spherical spreading + absorption + a 2-path surface
-   image with a \(\pi\) phase flip. Urick-class, not Bellhop.
+   image with a $\pi$ phase flip. Urick-class, not Bellhop.
 3. **Sensor.** 20 Hz–7 kHz hydrophone, ADC quantisation, clipping, clock
    drift, faults {bias, dropout, gain wander}. The trust engine sees a
    *noisy* health estimate, never the oracle (except in an ablation).
@@ -319,12 +321,12 @@ a 256-bit session key.
 **Train / val / test (reference).** 138 / 32 / 43 windows, plus a
 high-sea-state robustness draw of 80 windows.  
 **Seeds.** `{0}` in this draft; camera-ready `{0,1,2}` with Holm–Bonferroni
-on the family (AUC, ECE, energy), \(\alpha=0.05\).  
-**Primary detection score.** \(C_{\mathrm{wake}}\).  
+on the family (AUC, ECE, energy), $\alpha=0.05$.  
+**Primary detection score.** $C_{\mathrm{wake}}$.  
 **Primary baseline.** Youden energy threshold on train.  
 **Gating baseline.** Always-on L3 (`tau1=tau2=tau3=0`).  
-**Code identity tests.** Dirichlet \(\alpha>1\), \(\sum\hat p=1\), ECE in
-\([0,1]\), Proposition 1, twin determinism under seed, tamper-closed boot,
+**Code identity tests.** Dirichlet $\alpha \gt 1$, $\sum\hat p=1$, ECE in
+$[0,1]$, Proposition 1, twin determinism under seed, tamper-closed boot,
 gd32 refusal.
 
 Adapters for DeepShip and ShipsEar are implemented but were **not** used
@@ -339,7 +341,7 @@ not be quoted as ocean-deployment performance.
 
 | Detector | ROC-AUC | ECE | MCE | Brier |
 |----------|---------|-----|-----|-------|
-| AHAIF \(C_{\mathrm{wake}}\) | **0.916** | **0.328** | 0.328 | 0.358 |
+| AHAIF `C_wake` | **0.916** | **0.328** | 0.328 | 0.358 |
 | Energy threshold (Youden) | 0.069 | 0.571 | — | — |
 
 The energy AUC below 0.5 is not a plotting error. High-energy windows in
@@ -362,7 +364,7 @@ temperature).
 |----------|-------|
 | KG nodes / edges | 20 / 21 |
 | True events in test | 21 |
-| Ontology hit-rate (top cause \(=\) generating `cause_id`) | **1.00** |
+| Ontology hit-rate (top cause $=$ generating `cause_id`) | **1.00** |
 | Counterfactual-verified true events | 21 |
 
 A typical chain:
@@ -375,23 +377,23 @@ verified.”*
 This hit-rate is expected on twin-synthetic data whose labels *are* the
 ontology. It is a correctness check of the reasoner, not a claim of
 open-ocean explanation quality. A 50-chain author faithfulness study
-(Cohen’s \(\kappa\)) is specified in the protocol and not yet run.
+(Cohen’s $\kappa$) is specified in the protocol and not yet run.
 
 ### 6.3 Objective 3 — gated energy
 
 | Policy | Energy (J / window) | Miss | Pareto size |
 |--------|---------------------|------|-------------|
-| Chebyshev knee \(\tau\approx(0.60,0.70,0.83)\) | **\(2.08\times10^{-4}\)** | 0.488 | 16 |
-| Always-on L3 | \(6.66\times10^{-3}\) | 0.488 | — |
+| Chebyshev knee tau ~ (0.60, 0.70, 0.83) | **2.08e-4** | 0.488 | 16 |
+| Always-on L3 | 6.66e-3 | 0.488 | — |
 
 Miss is **matched by construction**: both policies use the same
-\(C_{\mathrm{wake}}\ge 0.5\) detector; the gate only skips L2/L3
+$C_{\mathrm{wake}}\ge 0.5$ detector; the gate only skips L2/L3
 *compute*. Energy drops by a factor of ~32. Proposition 1 holds on the
 analytic costs. A 10 Wh cell at 1 Hz inference lasts ~2003 days gated
 versus ~63 days always-on (Peukert exponent = 1 in this draft).
 
 The absolute miss of 0.488 is a small-test-set / decision-threshold
-artefact (\(0.5\) on \(C_{\mathrm{wake}}\) is not the Youden point of
+artefact ($0.5$ on $C_{\mathrm{wake}}$ is not the Youden point of
 trust). Camera-ready tables should report the full ROC, not a single
 operating point, for miss.
 
@@ -401,10 +403,10 @@ operating point, for miss.
 
 | Stage | Big-O | FLOPs / window | Peak RAM |
 |-------|-------|----------------|----------|
-| L0 rFFT + moments | \(O(N\log N)\) | \(1.12\times10^6\) | 256 kB |
-| L1 Mel + IN | \(O(N_{\mathrm{fr}} N_{\mathrm{fft}} B)\) | \(9.99\times10^5\) | 7.8 kB |
-| L2 TinyCNN | MAC tracer | \(4.84\times10^5\) MAC | 546 B INT8 |
-| L3 KG BFS | \(O(\|V\|+\|E\|)\) | 41 | 2.6 kB |
+| L0 rFFT + moments | O(N log N) | 1.12e6 | 256 kB |
+| L1 Mel + IN | O(frames x N_fft x B) | 9.99e5 | 7.8 kB |
+| L2 TinyCNN | MAC tracer | 4.84e5 MAC | 546 B INT8 |
+| L3 KG BFS | O(V + E) | 41 | 2.6 kB |
 
 **Energy per level (mJ / window), software-defined profiles.**
 
@@ -421,11 +423,11 @@ Authenticated L2 placement on `gd32vf103` is refused
 (`gd32_refused_authenticated_l2=true`). Honest HMAC verifies; AES-GCM
 round-trips.
 
-**Ablation note.** Zeroing \(w_h\) or \(w_s\) did not move detection AUC
-in this run, because ROC is computed on \(C_{\mathrm{wake}}\) (the
-Dirichlet reject mass), not on \(T(e)\). Health and environment terms
-affect *gating* via \(T(e)\). A camera-ready ablation must report both
-the ROC of \(C_{\mathrm{wake}}\) and the energy of the resulting gate
+**Ablation note.** Zeroing $w_h$ or $w_s$ did not move detection AUC
+in this run, because ROC is computed on $C_{\mathrm{wake}}$ (the
+Dirichlet reject mass), not on $T(e)$. Health and environment terms
+affect *gating* via $T(e)$. A camera-ready ablation must report both
+the ROC of $C_{\mathrm{wake}}$ and the energy of the resulting gate
 when those weights are zeroed.
 
 ### 6.5 Statistical protocol (as specified, partially executed)

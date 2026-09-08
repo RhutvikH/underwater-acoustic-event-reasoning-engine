@@ -16,18 +16,20 @@ import numpy as np
 
 from uaere.causal.reasoner import CausalReasoner
 from uaere.classify.train import _mel_stats, extract_features, train_evidential, transform
-from uaere.hardware.profiles import PROFILES, load_profile
+from uaere.hardware.profiles import load_profile
 from uaere.kg.graph import load_kg
 from uaere.math.energy import compute_energy_j
 from uaere.policy.runtime_gate import RuntimeGate
 from uaere.representation.env_norm import AdaptiveNormalizer
-from uaere.representation.l0_dsp import extract_l0, l0_admit_score
 from uaere.representation.l1_tf import log_mel
+from uaere.representation.predictive import surprise, surprise_admit
 from uaere.seed import rng as make_rng
 from uaere.twin.environment import EnvironmentModel
-from uaere.twin.network import AcousticNode, NetworkTwin, tx_energy_j
+from uaere.twin.interferometry import InterferometricAtlas
+from uaere.twin.network import AcousticNode, NetworkTwin
 from uaere.twin.propagate import propagate
 from uaere.twin.render import TwinRenderer, _mix_snr
+from uaere.twin.routing import report_to_sink
 from uaere.twin.sensor import Hydrophone, apply_sensor, noisy_health_estimate
 from uaere.twin.sources import synthesize_source
 from uaere.trust.trust_score import TrustEngine
@@ -78,6 +80,7 @@ class SwarmTick:
     nodes: list[NodeView]
     links: list[dict]
     kpis: dict
+    sink_xyz: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
 
 class SwarmField:
@@ -125,6 +128,9 @@ class SwarmField:
             "collab_wakes": 0,
             "explanations": 0,
             "joules": 0.0,
+            "reports_to_sink": 0,
+            "undeliverable": 0,
+            "shadow_blocked_hops": 0,
         }
         nodes = []
         for i in range(self.n_nodes):
@@ -143,6 +149,7 @@ class SwarmField:
                 )
             )
         self.net = NetworkTwin(nodes, sink_xyz=(extent_m / 2, extent_m / 2, 0.0))
+        self.atlas = InterferometricAtlas([n.node_id for n in nodes])
 
     def warmup(self, n_train: int = 80) -> None:
         recs = TwinRenderer(self.scenario, seed=self.seed + 17).render_dataset(n_train)
@@ -160,7 +167,18 @@ class SwarmField:
         probs = probs / probs.sum()
         name = str(self.rng.choice(names, p=probs))
         cls = EventClass(name)
-        present = cls in {EventClass.TUG, EventClass.CARGO, EventClass.TANKER, EventClass.PASSENGER}
+        present = cls in {
+            EventClass.TUG,
+            EventClass.CARGO,
+            EventClass.TANKER,
+            EventClass.PASSENGER,
+            EventClass.BIOLOGICAL,
+        }
+        # Honest idle drain every 1 s tick (engineering, not a claim).
+        for node in self.net.nodes.values():
+            idle_j = load_profile(node.profile_id).idle_mw * 1e-3
+            node.spend(idle_j)
+            self.kpis["joules"] += idle_j
         src_xyz = (
             float(self.rng.uniform(50, self.extent_m - 50)),
             float(self.rng.uniform(50, self.extent_m - 50)),
@@ -180,6 +198,13 @@ class SwarmField:
         hears: dict[str, dict] = {}
         for node in self.net.nodes.values():
             hears[node.node_id] = self._hear(node, source, src_xyz, cls, state)
+        nids = list(hears.keys())
+        if not present:
+            for i, a in enumerate(nids):
+                for b in nids[i + 1 :]:
+                    self.atlas.update(
+                        a, hears[a]["record"].waveform, b, hears[b]["record"].waveform, False
+                    )
 
         # Pass 2: local gate. Uncertain nodes request neighbour confirmation
         # *before* anyone runs L3. That is the cheap-swarm specialty.
@@ -218,6 +243,7 @@ class SwarmField:
                     level, reason = ExecutionLevel.L3, "collab_confirmed_l3"
             expl = None
             event_cls = tscore.predicted_class()
+            report = None
             if level.value >= ExecutionLevel.L3.value:
                 rec = h["record"]
                 expl = self.reasoner.explain(
@@ -227,6 +253,15 @@ class SwarmField:
                     rec.environment,
                 )
                 self.kpis["explanations"] += 1
+                report = report_to_sink(self.net, self.atlas, nid)
+                if report.get("delivered"):
+                    self.kpis["reports_to_sink"] += 1
+                    hops = report.get("hops") or []
+                    for a, b in zip(hops[:-1], hops[1:], strict=False):
+                        links.append({"src": a, "dst": b, "kind": "sink_path"})
+                    self.kpis["joules"] += float(report.get("joules") or 0.0)
+                else:
+                    self.kpis["undeliverable"] += 1
             profile = load_profile(node.profile_id)
             tx_bits = 256 if woke[nid] else 0
             energy = compute_energy_j(level, MACS, profile, tx_bits=tx_bits)
@@ -285,6 +320,7 @@ class SwarmField:
             nodes=views,
             links=links,
             kpis=dict(self.kpis),
+            sink_xyz=self.net.sink_xyz,
         )
         self._last = tick
         return tick
@@ -314,17 +350,29 @@ class SwarmField:
             health_oracle=oracle,
             health_estimate=est,
             event_present=cls
-            in {EventClass.TUG, EventClass.CARGO, EventClass.TANKER, EventClass.PASSENGER},
+            in {
+                EventClass.TUG,
+                EventClass.CARGO,
+                EventClass.TANKER,
+                EventClass.PASSENGER,
+                EventClass.BIOLOGICAL,
+            },
             event_class=cls
-            if cls in {EventClass.TUG, EventClass.CARGO, EventClass.TANKER, EventClass.PASSENGER}
+            if cls
+            in {
+                EventClass.TUG,
+                EventClass.CARGO,
+                EventClass.TANKER,
+                EventClass.PASSENGER,
+                EventClass.BIOLOGICAL,
+            }
             else EventClass.REJECT,
             cause_id="",
             is_artifact=False,
             source_id=node.node_id,
         )
-        l0 = extract_l0(obs, WORKING_FS)
-        if l0_admit_score(l0) < 0.12:
-            # near-silence at this node (too far): cheap reject
+        S = surprise(obs, WORKING_FS, state)
+        if surprise_admit(S) < 0.12:
             dummy = self.engine.score(  # type: ignore[union-attr]
                 np.zeros(self.head.w1.shape[1]),  # type: ignore[union-attr]
                 np.zeros((32, 4)),
@@ -333,12 +381,14 @@ class SwarmField:
             )
             dummy.event_trust = 0.05
             dummy.wake_confidence = 0.05
-            return {"record": rec, "trust": dummy, "snr_db": snr_db}
+            dummy.components["surprise"] = S
+            return {"record": rec, "trust": dummy, "snr_db": snr_db, "surprise": S}
         mel = log_mel(obs, WORKING_FS)
         mel_n = self.norm.normalize_mel(mel, state)
         feats = transform(self.head, _mel_stats(mel_n))  # type: ignore[arg-type]
         tscore = self.engine.score(feats, mel_n, est, state)  # type: ignore[union-attr]
-        return {"record": rec, "trust": tscore, "snr_db": snr_db}
+        tscore.components["surprise"] = S
+        return {"record": rec, "trust": tscore, "snr_db": snr_db, "surprise": S}
 
     def _nearest(self, nid: str, k: int = 2) -> list[str]:
         src = self.net.nodes[nid]
@@ -364,4 +414,5 @@ def tick_to_json(tick: SwarmTick) -> dict:
         "nodes": [n.__dict__ for n in tick.nodes],
         "links": tick.links,
         "kpis": tick.kpis,
+        "sink": {"id": "__sink__", "xyz": list(tick.sink_xyz)},
     }

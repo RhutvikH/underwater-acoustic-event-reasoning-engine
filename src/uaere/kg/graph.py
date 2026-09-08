@@ -76,5 +76,6 @@ def load_kg(path: str | Path | None = None) -> MarineAcousticKG:
         g.add_node(nid, **node)
         meta[nid] = node
     for e in raw["edges"]:
-        g.add_edge(e["src"], e["dst"], rel=e["rel"])
+        data = {k: v for k, v in e.items() if k not in {"src", "dst"}}
+        g.add_edge(e["src"], e["dst"], **data)
     return MarineAcousticKG(g, meta)

@@ -122,6 +122,9 @@ results, not as ocean-deployment performance.
 Runs the frozen paper protocol (`src/uaere/eval/suite.py`).
 
 ```bash
+uaere evaluate --out artifacts/eval
+
+# Raw tables without pass/fail (still useful):
 uaere eval --suite paper \
   --out artifacts/paper \
   --n-windows 240 \
@@ -142,7 +145,7 @@ Exit code `0` if every success flag is true, else `1`.
 **How to read `suite.json`**
 
 - `wake.trust_auc` / `wake.energy_auc` — Objective 1. Detection score is
-  wake confidence \(C_{\mathrm{wake}}=1-\hat p_{\mathrm{reject}}\), **not**
+  wake confidence `C_wake = 1 - p_hat_reject`, **not**
   band energy.
 - `wake.trust_ece` — calibration of that score vs `event_present`.
 - `explanations.ontology_hit_rate` — Objective 2. Top KG cause matches the
@@ -205,8 +208,8 @@ uaere train --scenario busy_strait --n 200 --steps 200 --seed 0 --out artifacts/
 ```
 
 Fits a class-balanced multinomial logistic on Mel statistics, then lifts
-\(\hat p\) to a Dirichlet via \(\alpha = 1 + \tau\hat p\)
-(\(\tau=20\)). Writes `evidential_head.npz`. The paper suite **retrains**
+`p_hat` to a Dirichlet via `alpha = 1 + tau * p_hat`
+(`tau = 20`). Writes `evidential_head.npz`. The paper suite **retrains**
 its own head; this command is for inspection and for the Python API below.
 
 ### `uaere demo` (presentation GUI + Unity feed)
@@ -297,8 +300,8 @@ if result.explanation:
 | Field | Meaning |
 |-------|---------|
 | `level` | `L0`…`L4` actually executed |
-| `trust.wake_confidence` | \(C_{\mathrm{wake}}\), detection score |
-| `trust.event_trust` | \(T(e)\), what the **gate** sees |
+| `trust.wake_confidence` | `C_wake`, detection score |
+| `trust.event_trust` | `T(e)`, what the **gate** sees |
 | `trust.u_aleatoric` / `u_epistemic` | Dirichlet uncertainties |
 | `event_class` | predicted label (CNN if L2+, else argmax of Dirichlet) |
 | `explanation.sentence` | one-line cause chain (only if L3+) |
@@ -352,8 +355,8 @@ train, val, test = time_aware_split(recs)   # later-in-time = test
 
 `ShipsEarAdapter` is the same windowing with a different root. Real
 recordings have a default `EnvironmentState` and healthy `SensorHealth`
-because those corpora do not ship twin oracles. Trust’s \(\kappa(h)\) and
-\(\rho(s,x)\) are then near-constant; detection still uses \(C_{\mathrm{wake}}\).
+because those corpora do not ship twin oracles. Trust’s `kappa(h)` and
+`rho(s,x)` are then near-constant; detection still uses `C_wake`.
 
 Put the path in `configs/default.yaml` as `data.deepship_root` when you freeze
 a camera-ready run, and record the SHA-256 in
@@ -367,20 +370,20 @@ a camera-ready run, and record the SHA-256 in
 hydrophone window (1 s, 16 kHz)
         │
         ▼
- L0  rFFT moments — always on
-        │  logistic of the *vector* (energy, ZCR, centroid, flatness, residual)
-        │  admit < 0.15  →  sleep (near-silence), still not "energy > θ"
+ L0  rFFT moments (always computed) + predictive-coding surprise S
+        │  surprise_admit(S); sleep if admit < 0.15
+        │  (ocean matches Knudsen model — still not "energy > theta")
         ▼
  L1  log-Mel + FiLM env-norm + evidential Dirichlet → C_wake, T(e)
         │
         ▼
-     RuntimeGate(π) on T(e)
+     RuntimeGate(pi) on T(e)
         │
-        ├─ T < τ1 → stay L0
-        ├─ T < τ2 → L1 only
-        ├─ T < τ3 → L2 TinyCNN
-        ├─ T ≥ τ3 → L3 KG + counterfactual
-        └─ τ_collab_lo ≤ T ≤ τ_collab_hi → also L4 neighbour-wake TX
+        ├─ T < tau1 → stay L0
+        ├─ T < tau2 → L1 only
+        ├─ T < tau3 → L2 TinyCNN
+        ├─ T >= tau3, T outside collab band → L3 KG + WHY/WHY-NOT
+        └─ T >= tau3 and tau_collab_lo <= T <= tau_collab_hi → L4 (replaces L3)
 ```
 
 π itself is **not** typed by a human for the paper run. NSGA-II searches a

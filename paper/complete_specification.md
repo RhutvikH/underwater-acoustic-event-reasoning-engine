@@ -108,8 +108,8 @@ HMAC-authenticated inference, and AES-GCM communication.
 ```
 Digital twin  →  observation x, state s, health estimate h
                      │
- L0 always-on DSP φ0 (rFFT moments)
-                     │ logistic of the φ0 *vector* (not energy ≷ θ)
+ L0 always-on DSP + predictive-coding surprise S
+                     │ surprise_admit(S)  (not energy ≷ θ, not φ0 logistic)
  L1 log-Mel + env-norm + evidential Dirichlet
                      │ C_wake, T(e), u_a, u_e
          Multi-objective gate π*(T)
@@ -119,15 +119,15 @@ Digital twin  →  observation x, state s, health estimate h
          Orchestrator + Secure HAL → device profile d
 ```
 
-**Figure 2 — Policy staircase** on \(T(e)\) with thresholds
-\(\tau_1<\tau_2<\tau_3\) and a collaborative band
-\([\tau_{\mathrm{collab,lo}},\tau_{\mathrm{collab,hi}}]\).
+**Figure 2 — Policy staircase** on $T(e)$ with thresholds
+$\tau_1 \lt \tau_2 \lt \tau_3$ and a collaborative band
+$[\tau_{\mathrm{collab,lo}},\tau_{\mathrm{collab,hi}}]$.
 
 **Figure 3 — Knowledge graph fragment.** VesselClass —radiates→ EventType
 —caused_by→ VesselClass; Environment incompatible_with selected events;
 SensorArtifact caused_by clipping / dropout / gain wander.
 
-**Figure 4 — Pareto front** of \(F(\pi)\) and the Chebyshev knee used at
+**Figure 4 — Pareto front** of $F(\pi)$ and the Chebyshev knee used at
 runtime.
 
 These figures are embodied by `src/uaere/pipeline.py`,
@@ -139,18 +139,18 @@ These figures are embodied by `src/uaere/pipeline.py`,
 
 ### Embodiment 1 — Signals and twin (best mode of the laboratory)
 
-Windows are \(N=f_s\cdot 1\,\mathrm{s}\) samples, \(f_s=16\,\mathrm{kHz}\)
+Windows are $N=f_s\cdot 1\,\mathrm{s}$ samples, $f_s=16\,\mathrm{kHz}$
 working rate (DeepShip native 32 kHz is resampled by the adapter). The
-twin (`src/uaere/twin/`) produces \(x\), oracle health \(h^\star\), and
-environment \(s\):
+twin (`src/uaere/twin/`) produces $x$, oracle health $h^\star$, and
+environment $s$:
 
-- Mackenzie nine-term sound speed \(c(T,S,z)\).
-- Thorp absorption \(\alpha(f)\) dB/km.
+- Mackenzie nine-term sound speed $c(T,S,z)$.
+- Thorp absorption $\alpha(f)$ dB/km.
 - Knudsen-style ambient PSD lifted by sea-state and turbulence.
-- Spherical spreading plus a surface image path with a \(\pi\) phase
+- Spherical spreading plus a surface image path with a $\pi$ phase
   inversion and a configurable surface-loss.
 - Hydrophone bandpass, equivalent noise, ADC, optional faults.
-- A noisy health estimate \(h\) shown to the trust engine
+- A noisy health estimate $h$ shown to the trust engine
   (`noisy_health_estimate`).
 - Optional ice-keel scatterer (embodiment, **not** an independent
   claim).
@@ -160,34 +160,35 @@ Micro-Modem class (`twin/network.py`).
 
 ### Embodiment 2 — Adaptive multi-level representation
 
-\(\phi_0\): energy, ZCR, centroid, bandwidth, flatness, residual
-(`representation/l0_dsp.py`). L0→L1 admit is
-\(\sigma(w^\top\phi_0+b)\) with default \(w\) using shape features. This
-is expressly **not** `if energy > θ`.
+$\phi_0$: energy, ZCR, centroid, bandwidth, flatness, residual
+(`representation/l0_dsp.py`) — computed, not the admit. L0→L1 admit is
+a logistic of precision-weighted surprise $S$ against the twin Knudsen
+ambient (`representation/predictive.py`). This is expressly **not**
+`if energy > θ` and not $\sigma(w^\top\phi_0+b)$.
 
-\(\phi_1\): log-Mel, 32 bands (`l1_tf.py`), instance-norm and FiLM from
-\(s\) (`env_norm.py`), noise-PSD EMA with time constant \(\alpha\)
+$\phi_1$: log-Mel, 32 bands (`l1_tf.py`), instance-norm and FiLM from
+$s$ (`env_norm.py`), noise-PSD EMA with time constant $\alpha$
 (config default 0.05).
 
-\(\phi_2\): depthwise-separable CNN (`encoder.py`) with an owned IR
+$\phi_2$: depthwise-separable CNN (`encoder.py`) with an owned IR
 (`classify/ir.py`) so MAC counts do not depend on TensorFlow Lite. INT8
-size must remain \(\le 250\,\mathrm{KB}\); the reference net is 546 B.
+size must remain $\le 250\,\mathrm{KB}$; the reference net is 546 B.
 
 ### Embodiment 3 — Dynamic trust (no predetermined energy threshold)
 
-Dirichlet strengths \(\alpha=f_\theta(\phi_1)+1>0\), or the equivalent
-lift \(\alpha=1+\tau\hat p\) from a fitted multinomial logistic
+Dirichlet strengths $\alpha=f_\theta(\phi_1)+1 \gt 0$, or the equivalent
+lift $\alpha=1+\tau\hat p$ from a fitted multinomial logistic
 (`trust/evidential_head.py`, `classify/train.py`). Mean, aleatoric and
-epistemic uncertainties, and \(C_{\mathrm{wake}}=1-\hat p_{\mathrm{reject}}\)
+epistemic uncertainties, and $C_{\mathrm{wake}}=1-\hat p_{\mathrm{reject}}$
 follow Sensoy-style identities (`math/dirichlet.py`).
 
-Health consistency \(\kappa(h)\) and environmental consistency
-\(\rho(s,x)\) (low-frequency contrast penalised by sea-state and
+Health consistency $\kappa(h)$ and environmental consistency
+$\rho(s,x)$ (low-frequency contrast penalised by sea-state and
 turbulence) enter
 
-\[
+$$
 T(e)=\sigma(w_c C_{\mathrm{wake}}+w_h\kappa+w_s\rho-w_u(u_a+u_e)+b).
-\]
+$$
 
 Default weights are in `TrustEngine`. Ablation zeros individual weights.
 Post-hoc temperature / vector scaling lives in `trust/calibrate.py`.
@@ -211,9 +212,9 @@ inventors do not claim do-calculus identification.
 
 ### Embodiment 5 — Multi-objective policy and runtime gate
 
-Decision vector \(\pi=(\tau_1,\tau_2,\tau_3,m,d)\) plus a collaborative
+Decision vector $\pi=(\tau_1,\tau_2,\tau_3,m,d)$ plus a collaborative
 band and an authenticated-inference flag (`types.PolicyVector`).
-Objectives \(F(\pi)\) (`policy/objectives.py`): miss, false-alarm,
+Objectives $F(\pi)$ (`policy/objectives.py`): miss, false-alarm,
 joules/window, p99 latency, ECE, negated explanation coverage.
 
 Search: NSGA-II, seed-locked, implemented in `policy/nsga2.py` without a
@@ -221,7 +222,7 @@ third-party MOEA library. Runtime: Chebyshev knee
 (`policy/runtime_gate.chebyshev_select`) and staircase
 (`RuntimeGate.admit`).
 
-Energy identity \(E=c_0+p_1c_1+p_2c_2+p_3c_3\) and Proposition 1 are
+Energy identity $E=c_0+p_1c_1+p_2c_2+p_3c_3$ and Proposition 1 are
 `math/energy.py` and `math/bounds.py`.
 
 ### Embodiment 6 — Hardware abstraction and secure HAL
@@ -322,9 +323,10 @@ the environment state, said state including a sound-speed value and a
 sea-state index.
 
 **Claim 6.** The method of claim 1, wherein a first, always-on
-representation comprises spectral shape descriptors in addition to
-energy, and a logistic of that vector, not a comparison of energy to a
-constant, admits computation of a second representation.
+representation is a precision-weighted prediction error (surprise)
+against a generative model of ambient ocean noise, and a logistic of
+that surprise, not a comparison of energy to a constant, admits
+computation of a second representation.
 
 **Claim 7.** The method of claim 1, wherein the multi-objective program
 is solved offline by a Pareto evolutionary algorithm, including NSGA-II,

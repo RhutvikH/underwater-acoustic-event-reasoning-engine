@@ -5,6 +5,23 @@ this file. What follows is a technical novelty analysis against
 `docs/review_1.pdf`, `docs/review_1_lit_rev.pdf`, `docs/non_negotiables.txt`,
 and a 2024–2026 literature sweep.
 
+## Cross-field claims now in the code (not a UASN mashup)
+
+1. **Predictive-coding wake** (`representation/predictive.py`) — Rao–Ballard /
+   Friston precision-weighted surprise. Storms match the Knudsen generative
+   model (high energy, low surprise). Distant tugs do not. This is not
+   REAM, not an energy threshold, not node reputation.
+2. **Interferometric death-zone atlas** (`twin/interferometry.py`) —
+   Claerbout–Wapenaar ambient-noise Green’s functions between cheap
+   hydrophones. Sink Dijkstra (`twin/routing.py`) sets `w_ij = inf` on
+   deaf hops. Death zones are *measured*, not Bellhop’d.
+3. **Dung argumentation** (`causal/argumentation.py`) — WHY / WHY-NOT
+   proofs. `event.tug_pass` attacks `cause.env.rain` unless sea-state ≥ 3.
+   Not iKnow-audio triples and not an LLM.
+
+See `docs/IDEAS.md` for 47 further ranked ideas. Do not claim Watkins
+species SOTA.
+
 ## What we actually claim
 
 The independent method claim (see `paper/complete_specification.md`

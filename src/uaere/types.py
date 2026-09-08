@@ -17,7 +17,7 @@ WINDOW_SECONDS = 1.0
 N_FFT = 512
 HOP_LENGTH = 256
 N_MELS = 32
-N_EVENT_CLASSES = 5  # cargo, passenger, tanker, tug, reject
+N_EVENT_CLASSES = 6  # cargo, passenger, tanker, tug, biological, reject
 
 
 class EventClass(str, Enum):
@@ -36,6 +36,7 @@ DEEPSHIP_LABELS: tuple[EventClass, ...] = (
     EventClass.PASSENGER,
     EventClass.TANKER,
     EventClass.TUG,
+    EventClass.BIOLOGICAL,
     EventClass.REJECT,
 )
 
@@ -154,6 +155,10 @@ class Explanation:
     score: float
     counterfactual_verified: bool
     rejected_causes: list[str] = field(default_factory=list)
+    why: str = ""
+    why_not: list[str] = field(default_factory=list)
+    accepted: list[str] = field(default_factory=list)
+    attacks_fired: list[str] = field(default_factory=list)
 
 
 @dataclass

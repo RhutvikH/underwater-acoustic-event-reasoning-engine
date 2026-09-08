@@ -22,6 +22,12 @@ def main(argv: list[str] | None = None) -> int:
     ev.add_argument("--seed", type=int, default=0)
     ev.add_argument("--steps", type=int, default=250)
 
+    eg = sub.add_parser("evaluate", help="grade a run against frozen EvaluationConditions")
+    eg.add_argument("--out", default="artifacts/eval")
+    eg.add_argument("--n-windows", type=int, default=None)
+    eg.add_argument("--seed", type=int, default=None)
+    eg.add_argument("--steps", type=int, default=None)
+
     tw = sub.add_parser("twin", help="render twin windows")
     tw.add_argument("--scenario", default="busy_strait")
     tw.add_argument("--n", type=int, default=32)
@@ -34,12 +40,19 @@ def main(argv: list[str] | None = None) -> int:
     ds.add_argument("--n", type=int, default=64)
     ds.add_argument("--seed", type=int, default=0)
 
-    tr = sub.add_parser("train", help="train evidential head on twin-synthetic")
+    tr = sub.add_parser("train", help="train a registered backbone on marine sound")
     tr.add_argument("--scenario", default="busy_strait")
     tr.add_argument("--n", type=int, default=200)
     tr.add_argument("--steps", type=int, default=250)
     tr.add_argument("--seed", type=int, default=0)
     tr.add_argument("--out", default="artifacts/models")
+    tr.add_argument("--backbone", default="logistic_mel")
+    tr.add_argument("--dataset", default="twin", choices=["twin", "watkins"])
+    tr.add_argument("--root", default=None, help="Watkins root (species folders of wav)")
+
+    prd = sub.add_parser("predict", help="classify a wav: class, C_wake, WHY/WHY-NOT")
+    prd.add_argument("--wav", required=True)
+    prd.add_argument("--checkpoint", default=None)
 
     kg = sub.add_parser("kg", help="export marine acoustic KG")
     kg.add_argument("--out", default="artifacts/kg/marine_acoustic.ttl")
@@ -69,6 +82,22 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report["success"], indent=2))
         print(f"wrote {args.out}/suite.json")
         return 0 if all(report["success"].values()) else 1
+    if args.cmd == "evaluate":
+        from dataclasses import replace
+
+        from uaere.eval.evaluator import EvaluationConditions, Evaluator
+
+        c = EvaluationConditions()
+        if args.n_windows is not None:
+            c = replace(c, n_windows=args.n_windows)
+        if args.seed is not None:
+            c = replace(c, seeds=(args.seed,))
+        if args.steps is not None:
+            c = replace(c, train_steps=args.steps)
+        verdict = Evaluator(c).run(out_dir=args.out)
+        print(json.dumps({"passed": verdict.passed, "failed": verdict.failed}, indent=2))
+        print(f"wrote {args.out}/verdict.md")
+        return 0 if verdict.passed else 1
     if args.cmd == "twin":
         from uaere.data.wavutil import write_wav
         from uaere.twin.render import TwinRenderer
@@ -87,19 +116,36 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(ad.summarize(), indent=2))
         return 0
     if args.cmd == "train":
-        from uaere.classify.train import extract_features, train_evidential
+        from uaere.data.adapters import WatkinsAdapter
+        from uaere.models.logistic_mel import LogisticMelBackbone
+        from uaere.models.registry import get_backbone
         from uaere.twin.render import TwinRenderer
 
-        recs = TwinRenderer(args.scenario, seed=args.seed).render_dataset(args.n)
-        bun = extract_features(recs)
-        head = train_evidential(bun, steps=args.steps, seed=args.seed)
+        if args.dataset == "watkins":
+            recs = WatkinsAdapter(args.root).load()
+            if not recs:
+                print("no Watkins wavs at --root; falling back to twin")
+                recs = TwinRenderer(args.scenario, seed=args.seed).render_dataset(args.n)
+        else:
+            recs = TwinRenderer(args.scenario, seed=args.seed).render_dataset(args.n)
+        bb = get_backbone(args.backbone, seed=args.seed, steps=args.steps)
+        if isinstance(bb, LogisticMelBackbone):
+            head = bb.fit_records(recs)
+        else:
+            bb.fit_records(recs)  # type: ignore[attr-defined]
+            head = bb.head  # type: ignore[attr-defined]
         out = Path(args.out)
         out.mkdir(parents=True, exist_ok=True)
-        npz = out / "evidential_head.npz"
+        npz = out / "last.npz"
         import numpy as np
 
-        np.savez(npz, w1=head.w1, b1=head.b1, w2=head.w2, b2=head.b2)
-        print(f"saved {npz}")
+        np.savez(npz, w1=head.w1, b1=head.b1, w2=head.w2, b2=head.b2, backbone=np.array(args.backbone))
+        print(f"saved {npz} backbone={args.backbone} n={len(recs)}")
+        return 0
+    if args.cmd == "predict":
+        from uaere.models.predict import predict_wav
+
+        print(json.dumps(predict_wav(args.wav), indent=2, default=float))
         return 0
     if args.cmd == "kg":
         from uaere.kg.graph import load_kg

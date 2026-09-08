@@ -42,7 +42,7 @@ uaere edge --n 1
 
 4. Neighbour wake uses UDP broadcast port **7946**
    (`uaere.edge.runtime.COLLAB_PORT`). Two Pis on one Ethernet switch
-   or one Wi-Fi AP: when \(T(e)\) is in the uncertain band, `broadcast_wake`
+   or one Wi-Fi AP: when `T(e)` is in the uncertain band, `broadcast_wake`
    sends `{"type":"collab_wake",...}`. That is the same L4 the GUI draws
    in magenta.
 
