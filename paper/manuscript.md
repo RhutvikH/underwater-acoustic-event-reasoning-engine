@@ -491,6 +491,10 @@ the independent claim lives in `paper/complete_specification.md`, and
 7. iKnow-audio, EMNLP 2025.
 8. Full 35-paper table: `docs/review_1_lit_rev.pdf` and
    `paper/claim_chart.md`.
+9. Dated 2024–2026 papers and patents (36 entries, DOIs/patent
+   URLs, better/worse): `docs/LIT_REVIEW_2024_2026.md`. Older
+   physics (Mackenzie, Thorp, Sensoy, DeepShip) stay in 1–4;
+   they are not in-window novelty.
 
 ---
 

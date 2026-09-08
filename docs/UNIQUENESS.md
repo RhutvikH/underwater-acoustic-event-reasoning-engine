@@ -3,7 +3,8 @@
 **This is not legal advice.** A patent is granted by an office, not by
 this file. What follows is a technical novelty analysis against
 `docs/review_1.pdf`, `docs/review_1_lit_rev.pdf`, `docs/non_negotiables.txt`,
-and a 2024–2026 literature sweep.
+and a 2024–2026 literature sweep. The dated table with links is
+[`docs/LIT_REVIEW_2024_2026.md`](LIT_REVIEW_2024_2026.md).
 
 ## Cross-field claims now in the code (not a UASN mashup)
 
@@ -44,7 +45,7 @@ Claim 1) is a **combination**:
 | Riemannian VAE UWSN trust (IEEE TMC 2026) | **Malicious nodes** in a latent space | Node reputation, not event admit/reject |
 | Federated DRL trust in UASNs (IEEE TMC 2024) | Insider / compromised nodes | Same: node-level |
 | Q-learning trust QLTM (2025) | Energy/data/comms evidence that a *neighbour is hostile* | Hostile-node FSM, not acoustic-event gating |
-| DLtrust dual-layer DT (IEEE 2026) | Digital twin for **attack** detection (LSTM + cloud DT) | Twin is a security observer of nodes, not a lab for event reasoning |
+| DLtrust dual-layer DT (IEEE GLOBECOM 2025, not a 2026 journal) | Digital twin for **attack** detection (LSTM + cloud DT) | Twin is a security observer of nodes, not a lab for event reasoning |
 | Channel-based trust (IEEE IoT-J 2022) | Packet forwarding vs channel HMM | Communications trust |
 | ST-GRSR (2026) | Detecting *adversary networks* with a GNN | Inverse problem (find a hidden net), not explain a hydrophone clip |
 | AUV KG + RAG/LLM (arXiv 2507.20370) | Mission knowledge + LLM for robot behaviour | Not marine *acoustic event* explanation; uses an LLM we deliberately exclude |
@@ -77,7 +78,7 @@ cheap-swarm confirmation step.
 | Novelty | Combination not disclosed in the 35-paper review nor in the 2026 node-trust / DT-security papers above. **File before public GitHub / arXiv.** |
 | Inventive step | Non-obvious to a UASN routing person to gate *causal acoustic explanation* on *event* trust with neighbour confirmation. A classifier person would just train a bigger net. |
 | Industrial application | Cheap UASN fields, shipping/PAM, lab certification of firmware. |
-| Sufficiency | Best mode is the `src/uaere/` tree; equations in `paper/formulation.md`. |
+| Sufficiency | Best mode is the `src/uaere/` tree; equations in `docs/MATH.md`. |
 | Risk | Examiner may treat “software on a known MCU” as excluded unless hardware-aware orchestration and the twin+swarm structure are foregrounded (non-negotiable 5). Keep device profiles and authenticated-inference *placement constraint* in Claim 1(e) and Claim 10. |
 | Risk | Twin-only TRL-4 does not kill a method claim; it limits the *examples*. |
 | Cannot promise | Grant, claim breadth after office actions, or freedom-to-operate vs unpublished applications. |

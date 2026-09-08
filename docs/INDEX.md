@@ -15,6 +15,7 @@
 | [IDEAS.md](IDEAS.md) | 50 ranked unique ideas |
 | [USER_GUIDE.md](USER_GUIDE.md) | Install, CLI, Python API, troubleshooting |
 | [UNIQUENESS.md](UNIQUENESS.md) | Novelty vs literature; patentability memo |
+| [LIT_REVIEW_2024_2026.md](LIT_REVIEW_2024_2026.md) | 36 dated 2024–2026 papers/patents, links, better/worse |
 | [DIAGRAMS.md](DIAGRAMS.md) | Gantt, flowcharts, swarm sequence |
 | [RASPBERRY_PI.md](RASPBERRY_PI.md) | Pi / cheap-node hardware path |
 | [review_1.pdf](review_1.pdf) | Capstone slides (the product definition) |

@@ -10,7 +10,8 @@ Start here if you are lost. Read **one** row, not all of them.
 | **Changing the code** (no AI) | [DEVELOPER.md](DEVELOPER.md) | tests in `tests/` |
 | Putting the twin on a Unity stage | [UNITY.md](UNITY.md) | `unity/AHAIF/README.md` |
 | Grading a run / writing the results table | [EVALUATION.md](EVALUATION.md) | `uaere evaluate` |
-| Asking “is this actually new?” | [UNIQUENESS.md](UNIQUENESS.md) | `paper/claim_chart.md` |
+| Asking “is this actually new?” | [UNIQUENESS.md](UNIQUENESS.md) | [LIT_REVIEW_2024_2026.md](LIT_REVIEW_2024_2026.md) · `paper/claim_chart.md` |
+| 2024–2026 papers and patents (with links) | [LIT_REVIEW_2024_2026.md](LIT_REVIEW_2024_2026.md) | [UNIQUENESS.md](UNIQUENESS.md) |
 | Filing IP | `paper/complete_specification.md` | `paper/invention_disclosure.md` |
 | Writing the journal paper | `paper/manuscript.md` | `paper/formulation.md` |
 | Flashing a Raspberry Pi | [RASPBERRY_PI.md](RASPBERRY_PI.md) | [DEVELOPER.md](DEVELOPER.md) § edge |
