@@ -14,7 +14,7 @@ import numpy as np
 from uaere.representation.env_norm import AdaptiveNormalizer
 from uaere.representation.l1_tf import log_mel
 from uaere.trust.evidential_head import EvidentialHead
-from uaere.types import CLASS_INDEX, EventClass, FloatArray, WindowRecord
+from uaere.types import ANIMAL_CLASSES, CLASS_INDEX, EventClass, FloatArray, WindowRecord
 
 
 @dataclass
@@ -41,24 +41,38 @@ def _mel_stats(mel: FloatArray) -> FloatArray:
     return np.concatenate([mu, sd, mx, bands])
 
 
-def extract_features(
+def mel_feature_rows(
     records: list[WindowRecord],
     normalizer: AdaptiveNormalizer | None = None,
-) -> FeatureBundle:
-    xs = []
-    ys = []
-    mels = []
+) -> tuple[FloatArray, list[FloatArray]]:
+    """Mel-statistic matrix. Does not map labels onto the ship head."""
+    xs: list[FloatArray] = []
+    mels: list[FloatArray] = []
     norm = normalizer or AdaptiveNormalizer(n_bins=32)
     for r in records:
         mel = log_mel(r.waveform, r.sample_rate)
-        # running noise from mean-over-time of linear-ish energy
         psd = np.exp(mel).mean(axis=1)
         norm.update_noise(psd, is_event=r.event_present)
         mel_n = norm.normalize_mel(mel, r.environment)
         xs.append(_mel_stats(mel_n))
-        ys.append(CLASS_INDEX.get(r.event_class, CLASS_INDEX[EventClass.REJECT]))
         mels.append(mel_n)
-    return FeatureBundle(X=np.stack(xs), y=np.array(ys, dtype=int), mel=mels, records=records)
+    if not xs:
+        raise ValueError("no windows to featurize")
+    return np.stack(xs), mels
+
+
+def extract_features(
+    records: list[WindowRecord],
+    normalizer: AdaptiveNormalizer | None = None,
+) -> FeatureBundle:
+    x, mels = mel_feature_rows(records, normalizer)
+    ys = []
+    for r in records:
+        cls = r.event_class
+        if cls in ANIMAL_CLASSES:
+            cls = EventClass.BIOLOGICAL
+        ys.append(CLASS_INDEX.get(cls, CLASS_INDEX[EventClass.REJECT]))
+    return FeatureBundle(X=x, y=np.array(ys, dtype=int), mel=mels, records=records)
 
 
 def train_evidential(

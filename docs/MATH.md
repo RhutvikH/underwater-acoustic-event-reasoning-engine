@@ -31,8 +31,8 @@ Code is the source of truth if this file drifts: `src/uaere/math/` and the modul
 | `Pi` | precision, diagonal, high where the ocean should be quiet |
 | `alpha` | Dirichlet strengths |
 | `p_hat` | Dirichlet mean (class probabilities) |
-| `C_wake` | 1 minus reject-class mass (detection score) |
-| `T(e)` | event-level trust (what the gate reads) |
+| `C_wake` | 1 minus reject-class mass (detection score). Fish heads use 1 minus P(other). |
+| `T(e)` | event-level gate score. The explanation gate reads it. It is not a calibrated probability that the label is correct. |
 | `pi` | policy: tau1, tau2, tau3, collab band, device id |
 | `Ghat` | interferometric Green peak between two nodes |
 
@@ -178,11 +178,16 @@ T(e) = sigmoid( w_c * C_wake + w_h * kappa(h) + w_s * rho(s,x)
                 - w_u * (u_a + u_e) + b )
 ```
 
-- `kappa(h)` down-weights clipping and faults.
-- `rho(s,x)` is low-frequency contrast, reduced in high sea-state
-  (support for a non-ambient cause).
+- `kappa(h)` down-weights clipping, a fault, fewer than 12 ADC bits, and drift above 5 ppm. A healthy sensor scores 1.
+- `rho(s,x)` is a sigmoid of low-minus-high Mel contrast, reduced by sea state and turbulence.
+- The knowledge graph is not an input of `T(e)`.
+- The weights are hand-set in `ModelConfig` and do not sum to 1: wake 2.2, health 0.8, environment 1.1, uncertainty 1.4, bias −0.6. They are not learned.
+- The concentration in `alpha = 1 + concentration * p_logistic` is the fixed value 20. It is not learned. Then `sum alpha = K + 20`, so epistemic uncertainty `u_e = K / (K + 20)` is the same on every window. For the two-class fish head that value is 2/22. Only the aleatoric term `u_a = 1 - max p_hat` varies.
+- `T(e)` is not the convex sum `w_c C + w_e E + w_k K + w_u (1 - U)`. That sum is not implemented. Do not describe the sigmoid as a probability of a correct label.
 
-Code: `math/dirichlet.py`, `trust/trust_score.py`.
+On the Pamlico fish files the environment vector is the imputed constant (12 °C, 34 PSU, 40 m, sea state 2, turbulence 0.1) and the sensor is healthy, so `kappa` is 1. The Mel passed into `rho` has already been instance-normalised per bin and then shifted by a FiLM bias that depends only on that environment vector (`representation/env_norm.py`). After that shift the low-high contrast is the bias, so `rho` does not vary across windows. With `u_e` also constant, `T(e)` is a strictly increasing function of `C_wake` at these weights. A threshold on `T(e)` therefore ranks windows the same way as a threshold on `C_wake`. The three-seed review in `artifacts/paper/review_upgrade/` confirms that retuning the threshold makes those two gates, and the ablations that zero a constant term, select the same windows.
+
+Code: `math/dirichlet.py`, `trust/trust_score.py`, `trust/evidential_head.py`.
 
 ---
 
@@ -225,6 +230,39 @@ is tested **only after** `T >= tau3`; when it hits, L4 **replaces** L3
 | `tau2 <= T < tau3` | L2 TinyCNN |
 | `T >= tau3` and T outside collab band | L3 KG + WHY/WHY-NOT |
 | `T >= tau3` and `tau_collab_lo <= T <= tau_collab_hi` | L4 neighbour-wake |
+
+That staircase is what the synthetic suite searches, and what `RuntimeGate` still implements. The fish paper comparison does not use it as the matched table. Searched policies do not enter L4. Neighbour confirmation is in-process, not an acoustic modem.
+
+### Fish paper gate (one threshold)
+
+The comparison in `paper/manuscript.md` is produced by `uaere eval --suite review`. For a score `s` the action on window `i` is
+
+```
+a_i = Level 3    if s_i >= tau
+a_i = Level 1    otherwise
+```
+
+Level 3 here means the cumulative datasheet cost through Level 3. The logistic label is emitted on both branches. The gate changes whether the explanation is paid for. It does not change macro-F1. Abstention is a different function: refuse the label when `s_i` is below its own validation threshold, and report the abstention rate, the error among accepted labels, and the full-set macro-F1 with refusals counted as errors. Do not describe that mode as the classifier that produced the fish macro-F1.
+
+`tau` is chosen on validation only. Candidates are the 5th, 10th, …, 95th percentiles of the validation scores. The three minimised objectives are mean modelled energy, the fraction of negative windows sent to Level 3, and one minus the fraction of positive windows sent to Level 3. The chosen point is the Chebyshev knee after min-max scaling. Ties break toward lower energy, then the earlier percentile. The same rule is applied to wake confidence, inverted uncertainty, a confidence–uncertainty logit, and full `T(e)`. The frozen threshold is scored once on test. Test labels do not enter the grid.
+
+The optional three-threshold staircase may still be searched with NSGA-II on validation (population 12, six generations) and scored once on test. It can stop at Level 0, so its joules are not a row of the one-threshold table. The older fish suite searched that staircase on the test split. The knee stored in `artifacts/paper/fish_suite.json` is that test-tuned point. Do not quote it as the review result.
+
+### Energy identity used by the review
+
+Per window, with no double count of the front end:
+
+```
+E_i = E_a,i + E_g,i + E_p,i
+E_bar = (1/N) * sum_i E_i
+saving_percent = 100 * (E_bar_baseline - E_bar_proposed) / E_bar_baseline
+```
+
+`E_a` is `compute_energy_j` at Level 1 (surprise front end plus the logistic). `E_g` is 0: trust arithmetic has no separate MAC line and is folded into `E_a`. `E_p` is 0 when the gate stops at Level 1. When the gate pays for an explanation, `E_p = E(Level 3) - E(Level 1)`. That difference includes the Level-2 MAC budget, because `compute_energy_j` sums every level up to the selected one. Level 2 does not supply the fish label.
+
+On the `stm32l476` profile at scale 1 the cumulative costs are Level 0 = 0.000208 J, Level 1 = 0.005408 J, Level 2 = 0.006448 J, Level 3 = 0.0064532 J. The graph-only increment, Level 3 minus Level 2, is 5.2e-6 J. About 0.995 of `E_p` is the unused Level-2 budget. The profile is 80 MHz, 8 mW active, 2.5 nJ per INT8 MAC. These joules are datasheet estimates. They are not a measured current and they are not an underwater deployment. An event arrival rate is not in the model. The same rate would cancel in the saving percentage. The synthetic suite’s factor-of-about-32 saving is a different policy on simulated windows. It is not this fish saving.
+
+Code: `eval/gate_compare.py`, `math/energy.py`, `policy/runtime_gate.py`.
 
 ---
 

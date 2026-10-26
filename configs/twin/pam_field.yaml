@@ -1,0 +1,15 @@
+temperature_c: 14.0
+salinity_psu: 34.0
+depth_m: 55.0
+sea_state: 2
+turbulence: 0.12
+ice_keel: 0.0
+mix:
+  whale: 0.20
+  dolphin: 0.18
+  sperm_whale: 0.12
+  seal: 0.12
+  fish: 0.10
+  geophony: 0.14
+  reject: 0.10
+  artifact: 0.04

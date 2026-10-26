@@ -27,6 +27,9 @@ class EvidentialHead:
         self.concentration = 20.0
         self._feat_mu = np.zeros(in_dim)
         self._feat_sd = np.ones(in_dim)
+        # None → the six ship/reject classes in CLASS_INDEX order.
+        self.labels: tuple[str, ...] | None = None
+        self.negative_index: int | None = None
 
     def evidence(self, feats: FloatArray) -> FloatArray:
         h = np.maximum(self.w1 @ feats + self.b1, 0.0)

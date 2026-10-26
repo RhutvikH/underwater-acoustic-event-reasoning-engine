@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 
 from uaere.causal.argumentation import argue_causes
-from uaere.kg.graph import CLASS_TO_EVENT, MarineAcousticKG
+from uaere.kg.graph import event_id_for, MarineAcousticKG
 from uaere.types import EnvironmentState, EventClass, Explanation, FloatArray, WindowRecord
 
 
@@ -24,8 +24,36 @@ class CausalReasoner:
         fs: int,
         state: EnvironmentState,
         predicted_again: EventClass | None = None,
+        taxon: str = "",
     ) -> Explanation:
-        event_id = CLASS_TO_EVENT[cls]
+        named_event = f"event.{taxon}" if taxon else ""
+        named_cause = f"cause.taxon.{taxon}" if taxon else ""
+        # A species head explains by the trained name. Opsanus tau keeps the
+        # hand-written boatwhistle node. Other enum names (sperm_whale, …) do
+        # not donate their stored bands to a Watkins label.
+        if (
+            taxon
+            and named_event in self.kg.g
+            and named_cause in self.kg.g
+            and taxon not in {EventClass.OPSANUS_TAU.value, EventClass.OTHER.value, EventClass.REJECT.value}
+        ):
+            event_id = named_event
+        else:
+            event_id = event_id_for(cls, taxon)
+        if event_id not in self.kg.g:
+            return Explanation(
+                event_type=event_id,
+                cause_id="unknown",
+                cause_label=taxon or cls.value,
+                chain=[event_id],
+                sentence=(
+                    f"Classified as {taxon or cls.value}. "
+                    "No knowledge-graph cause is defined for that label."
+                ),
+                score=0.0,
+                counterfactual_verified=False,
+                why=f"WHY {taxon or cls.value}: the classifier said so; the graph has no cause.",
+            )
         causes = self.kg.causes(event_id)
         ranked: list[tuple[float, str, dict, bool]] = []
         for cid, meta in causes:
@@ -68,7 +96,14 @@ class CausalReasoner:
             f"dung_accepted={','.join(arg.accepted) or 'none'}",
         ]
         label = meta.get("label", cid)
-        why = f"WHY {label}: cues match {cid} in sea-state {state.sea_state}."
+        cues = self.kg.cues(cid)
+        if str(cid).startswith("cause.taxon.") and not cues:
+            why = f"WHY {label}: the classifier named this taxon. No frequency band is stored."
+        else:
+            why = f"WHY {label}: cues match {cid} in sea-state {state.sea_state}."
+            contest = self.band_contest(waveform, fs, event_id)
+            if contest:
+                why = f"{why} {contest}"
         why_not = arg.why_not
         sentence = (
             f"{why} "
@@ -89,6 +124,33 @@ class CausalReasoner:
             why_not=why_not,
             accepted=arg.accepted,
             attacks_fired=arg.attacks_fired,
+        )
+
+    def band_contest(self, waveform: FloatArray, fs: int, event_id: str) -> str:
+        """Say whether the boatwhistle band leads the causes the graph marks as confusable.
+
+        The classifier label is not an input. Other events return an empty string.
+        """
+        if event_id != "event.toadfish_boatwhistle" or event_id not in self.kg.g:
+            return ""
+        rivals: list[tuple[float, str]] = []
+        for _, dst, data in self.kg.g.out_edges(event_id, data=True):
+            if data.get("rel") != "confusable_with":
+                continue
+            for cid, _meta in self.kg.causes(dst):
+                rivals.append((self._cue_match(waveform, fs, cid), cid))
+        if not rivals:
+            return ""
+        own = self._cue_match(waveform, fs, "cause.taxon.opsanus_tau")
+        best_score, best_id = max(rivals)
+        if own >= best_score:
+            return (
+                f"Stored boatwhistle band leads the confusable causes "
+                f"({best_id} {best_score:.2f}, boatwhistle {own:.2f})."
+            )
+        return (
+            f"Stored boatwhistle band does not lead; {best_id} scores "
+            f"{best_score:.2f} against boatwhistle {own:.2f}."
         )
 
     def _cue_match(self, x: FloatArray, fs: int, cause_id: str) -> float:

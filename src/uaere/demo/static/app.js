@@ -163,10 +163,11 @@ function renderMeta() {
   ].join("");
   const e = state.environment || {};
   const src = (state.source && state.source.class) || "—";
-  envEl.innerHTML = `<strong>${state.scenario || "twin"}</strong> · sea-state ${e.sea_state ?? "—"} · sound speed ${
+  const kind = state.source && state.source.present ? "animal event" : "not an animal (storm / ambient / fault)";
+  envEl.innerHTML = `<strong>${state.scenario || "twin"}</strong> · model <code>${state.model || "oracle"}</code> · sea-state ${e.sea_state ?? "—"} · sound speed ${
     e.ssp_m_s ? e.ssp_m_s.toFixed(0) : "—"
-  } m/s<br>source now: <em>${src}</em>${state.source && state.source.present ? " (vessel event)" : " (not a vessel)"}`;
-  badgeEl.textContent = state.paused ? "paused" : "live · 1 s / tick";
+  } m/s<br>source now: <em>${src}</em> — ${kind}`;
+  badgeEl.textContent = state.paused ? "paused" : `live · ${state.model || "oracle"} · 1 s / tick`;
 
   const n = (state.nodes || []).find((x) => x.node_id === selected);
   if (n) {
@@ -178,7 +179,10 @@ function renderMeta() {
         ${meter("Event trust T(e)", n.trust)}
         ${meter("Battery", n.battery_frac)}
       </div>
-      <div>SNR ${n.snr_db.toFixed(1)} dB · class <em>${n.event_class}</em></div>
+      <div>SNR ${Number.isFinite(n.snr_db) ? n.snr_db.toFixed(1) : "—"} dB · class <em>${n.event_class}</em></div>
+      <div class="listen"><audio controls preload="none" src="/api/audio?node=${encodeURIComponent(n.node_id)}&t=${state.t}"></audio>
+        <span>This is the 1 s window the classifier scored. Headphones, not the ocean.</span></div>
+      <div>Accepted causes: <strong>${(n.accepted && n.accepted.length) ? n.accepted.join(", ") : "—"}</strong></div>
       <div>Neighbour confirms: <strong>${n.confirmations}</strong> · auth TinyML: ${n.authenticated ? "yes" : "no"}</div>
       <div class="quote">${n.explanation || "No knowledge-graph sentence — this node did not pay for L3."}</div>
     `;

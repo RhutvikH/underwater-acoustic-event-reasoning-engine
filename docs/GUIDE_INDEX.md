@@ -13,12 +13,13 @@ Start here if you are lost. Read **one** row, not all of them.
 | Asking “is this actually new?” | [UNIQUENESS.md](UNIQUENESS.md) | [LIT_REVIEW_2024_2026.md](LIT_REVIEW_2024_2026.md) · `paper/claim_chart.md` |
 | 2024–2026 papers and patents (with links) | [LIT_REVIEW_2024_2026.md](LIT_REVIEW_2024_2026.md) | [UNIQUENESS.md](UNIQUENESS.md) |
 | Filing IP | `paper/complete_specification.md` | `paper/invention_disclosure.md` |
-| Writing the journal paper | `paper/manuscript.md` | `paper/formulation.md` |
+| Writing the journal paper | `paper/manuscript.md` | `paper/experiment_protocol.md` · `artifacts/paper/review_upgrade/` |
 | Flashing a Raspberry Pi | [RASPBERRY_PI.md](RASPBERRY_PI.md) | [DEVELOPER.md](DEVELOPER.md) § edge |
 | Need a Gantt or flowchart for slides | [DIAGRAMS.md](DIAGRAMS.md) | — |
 | Faculty constraints | [non_negotiables.txt](non_negotiables.txt) | [review_1.pdf](review_1.pdf) |
 | All equations (GitHub math) | [MATH.md](MATH.md) | `src/uaere/math/` |
 | What data we have | [DATASETS.md](DATASETS.md) | `uaere train` / `predict` |
+| Marine sound dataset **links** | [MARINE_DATASETS.md](MARINE_DATASETS.md) | Watkins, DCLDE, MobySound, … |
 | Which model / how to plug one | [MODELS.md](MODELS.md) | `src/uaere/models/` |
 | 50 unique ideas (ranked) | [IDEAS.md](IDEAS.md) | — |
 | Map of every file | [INDEX.md](INDEX.md) | — |

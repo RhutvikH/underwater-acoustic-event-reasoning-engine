@@ -52,3 +52,12 @@ def surprise_admit(S: float, center: float = 8.0, scale: float = 1.5) -> float:
     """Map surprise to (0, 1) for the L0 gate. Center is not an energy threshold."""
     z = (float(S) - center) / scale
     return float(1.0 / (1.0 + np.exp(-np.clip(z, -30, 30))))
+
+
+def surprise_at_admit(threshold: float = 0.15, center: float = 8.0, scale: float = 1.5) -> float:
+    """Surprise at which ``surprise_admit`` equals ``threshold``. Not an energy cut."""
+    t = float(threshold)
+    if not 0.0 < t < 1.0:
+        raise ValueError("threshold must be in (0, 1)")
+    z = float(np.log(t / (1.0 - t)))
+    return float(center + scale * z)

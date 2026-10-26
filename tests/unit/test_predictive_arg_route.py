@@ -5,7 +5,7 @@ import numpy as np
 from uaere.causal.argumentation import Attack, grounded_extension
 from uaere.causal.reasoner import CausalReasoner
 from uaere.kg.graph import load_kg
-from uaere.representation.predictive import surprise, surprise_admit
+from uaere.representation.predictive import surprise, surprise_admit, surprise_at_admit
 from uaere.twin.environment import EnvironmentModel
 from uaere.twin.interferometry import InterferometricAtlas
 from uaere.twin.network import AcousticNode, NetworkTwin
@@ -25,6 +25,8 @@ def test_tug_more_surprising_than_storm():
     s_storm = surprise(geo, 16000, storm)
     assert s_tug > s_storm
     assert surprise_admit(s_tug) > surprise_admit(s_storm)
+    s_cut = surprise_at_admit(0.15)
+    assert abs(surprise_admit(s_cut) - 0.15) < 1e-9
 
 
 def test_dung_rejects_rain_in_calm_sea():

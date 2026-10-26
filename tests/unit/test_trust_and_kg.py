@@ -30,6 +30,18 @@ def test_kg_every_vessel_has_caused_by():
         assert kg.causes(ev)
 
 
+def test_kg_every_animal_has_caused_by():
+    kg = load_kg()
+    for ev in (
+        "event.whale_song",
+        "event.dolphin_click",
+        "event.sperm_click",
+        "event.seal_vocal",
+        "event.fish_chorus",
+    ):
+        assert kg.causes(ev)
+
+
 def test_reasoner_gold_hit_on_twin_tug():
     recs = TwinRenderer("busy_strait", seed=2).render_dataset(40)
     tugs = [r for r in recs if r.event_class is EventClass.TUG]
@@ -39,6 +51,17 @@ def test_reasoner_gold_hit_on_twin_tug():
     )
     assert ex.cause_id == "cause.vessel.tug"
     assert "tug" in ex.sentence.lower()
+
+
+def test_reasoner_gold_hit_on_twin_whale():
+    recs = TwinRenderer("pam_field", seed=4).render_dataset(40)
+    whales = [r for r in recs if r.event_class is EventClass.WHALE]
+    assert whales
+    ex = CausalReasoner(load_kg()).explain(
+        whales[0].event_class, whales[0].waveform, whales[0].sample_rate, whales[0].environment
+    )
+    assert ex.cause_id == "cause.taxon.humpback"
+    assert ex.accepted
 
 
 def test_trust_beats_energy_on_twin():

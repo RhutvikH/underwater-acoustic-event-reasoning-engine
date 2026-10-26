@@ -12,10 +12,12 @@ from uaere.trust.evidential_head import EvidentialHead
 from uaere.types import (
     REJECT_INDEX,
     EnvironmentState,
+    EventClass,
     FaultClass,
     FloatArray,
     SensorHealth,
     TrustScore,
+    event_class_for_label,
 )
 
 
@@ -80,7 +82,17 @@ class TrustEngine:
         p = dirichlet_mean(alpha)
         u_e = float(epistemic_uncertainty(alpha))
         u_a = float(aleatoric_uncertainty(p))
-        c_wake = float(1.0 - p[REJECT_INDEX])
+        neg = self.head.negative_index
+        labels = self.head.labels
+        # A multi-species head has no reject class. Wake is the max class probability.
+        # Ship heads leave labels empty and still use 1 - P(reject). A fish head sets
+        # negative_index and still uses 1 - P(other).
+        if labels is not None and neg is None:
+            c_wake = float(np.max(p))
+        else:
+            if neg is None:
+                neg = REJECT_INDEX if REJECT_INDEX < len(p) else len(p) - 1
+            c_wake = float(1.0 - p[int(neg)])
         kappa = health_consistency(health)
         rho = env_consistency(mel, state)
         z = (
@@ -91,6 +103,11 @@ class TrustEngine:
             + self.w["bias"]
         )
         t = _sigma(z)
+        taxon = ""
+        label: EventClass | None = None
+        if labels:
+            taxon = labels[int(np.argmax(p))]
+            label = event_class_for_label(taxon)
         return TrustScore(
             wake_confidence=c_wake,
             event_trust=t,
@@ -108,4 +125,6 @@ class TrustEngine:
                 "u_e": u_e,
                 "logit": z,
             },
+            label=label,
+            taxon=taxon,
         )

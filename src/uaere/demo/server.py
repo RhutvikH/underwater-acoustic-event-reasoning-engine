@@ -9,6 +9,10 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from urllib.parse import parse_qs, urlparse
+
+from uaere.data.wavutil import wav_bytes
+from uaere.models.fish_head import DEFAULT_FISH_CHECKPOINT
 from uaere.swarm.field import SwarmField, tick_to_json
 
 STATIC = Path(__file__).with_name("static")
@@ -35,7 +39,16 @@ class DemoState:
     def json(self) -> bytes:
         with self.lock:
             if self.tick is None:
-                payload = {"t": 0, "nodes": [], "links": [], "kpis": {}, "source": {}, "environment": {}, "scenario": self.field.scenario}
+                payload = {
+                    "t": 0,
+                    "nodes": [],
+                    "links": [],
+                    "kpis": {},
+                    "source": {},
+                    "environment": {},
+                    "scenario": self.field.scenario,
+                    "model": self.field.model,
+                }
             else:
                 payload = tick_to_json(self.tick)
         payload["paused"] = self.paused
@@ -51,6 +64,21 @@ class Handler(SimpleHTTPRequestHandler):
         pass
 
     def do_GET(self) -> None:  # noqa: N802
+        if self.path.startswith("/api/audio"):
+            node = (parse_qs(urlparse(self.path).query).get("node") or ["n0"])[0]
+            audio = self.state.field._audio.get(node)
+            if audio is None:
+                self.send_error(404, "no window yet")
+                return
+            fs = int(getattr(self.state.field, "playback_fs", None) or 16_000)
+            body = wav_bytes(audio, fs)
+            self.send_response(200)
+            self.send_header("Content-Type", "audio/wav")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if self.path.startswith("/api/state"):
             body = self.state.json()
             self.send_response(200)
@@ -108,8 +136,63 @@ class DemoServer:
         return f"http://{self.host}:{self.port}/"
 
 
-def serve_demo(n_nodes: int = 8, scenario: str = "busy_strait", seed: int = 0, port: int = 8765) -> DemoServer:
-    field = SwarmField(n_nodes=n_nodes, scenario=scenario, seed=seed)
+def resolve_model(model: str, checkpoint: str | None) -> str:
+    """auto prefers the species checkpoint, then the fish checkpoint, then the ship logistic.
+
+    Oracle stays opt-in. A checkpoint path is classified by its ``kind`` field.
+    """
+    if model != "auto":
+        return model
+    from pathlib import Path
+
+    import joblib
+
+    from uaere.models.species_head import DEFAULT_SPECIES_CHECKPOINT, KINDS
+
+    path = Path(checkpoint) if checkpoint else None
+    if path is None:
+        if DEFAULT_SPECIES_CHECKPOINT.exists():
+            path = DEFAULT_SPECIES_CHECKPOINT
+        elif Path(DEFAULT_FISH_CHECKPOINT).exists():
+            path = Path(DEFAULT_FISH_CHECKPOINT)
+        else:
+            print(
+                "No species or fish checkpoint under artifacts/models. "
+                "Demo will use the ship logistic head. "
+                "Train with `uaere train --dataset species --root data/species`, "
+                "or pass --model oracle for the twin illustration (not a paper result)."
+            )
+            return "logistic"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"No checkpoint at {path}. Demo will not train a ship model in its place."
+        )
+    kind = joblib.load(path).get("kind")
+    if kind in KINDS:
+        return "species"
+    if kind == "fish_logistic_mel":
+        return "fish"
+    return "logistic"
+
+
+def serve_demo(
+    n_nodes: int = 8,
+    scenario: str = "pam_field",
+    seed: int = 0,
+    port: int = 8765,
+    model: str = "auto",
+    replay_root: str | None = None,
+    checkpoint: str | None = None,
+) -> DemoServer:
+    model = resolve_model(model, checkpoint)
+    field = SwarmField(
+        n_nodes=n_nodes,
+        scenario=scenario,
+        seed=seed,
+        model=model,
+        replay_root=replay_root,
+        checkpoint=checkpoint,
+    )
     srv = DemoServer(field, port=port)
     srv.start()
     return srv

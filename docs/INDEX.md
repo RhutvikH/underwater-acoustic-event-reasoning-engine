@@ -11,6 +11,7 @@
 | [UNITY.md](UNITY.md) | Unity 3D stage, step by step |
 | [MATH.md](MATH.md) | All equations, GitHub-rendered |
 | [DATASETS.md](DATASETS.md) | Twin / DeepShip / Watkins honesty |
+| [MARINE_DATASETS.md](MARINE_DATASETS.md) | Public marine-sound corpora with links |
 | [MODELS.md](MODELS.md) | Backbone registry, train / predict |
 | [IDEAS.md](IDEAS.md) | 50 ranked unique ideas |
 | [USER_GUIDE.md](USER_GUIDE.md) | Install, CLI, Python API, troubleshooting |

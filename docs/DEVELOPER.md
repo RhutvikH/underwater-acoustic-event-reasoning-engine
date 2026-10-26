@@ -51,6 +51,8 @@ A 1-second window walks:
 → RuntimeGate → TinyCNN? → CausalReasoner? → Orchestrator + SecureHAL
 → InferenceResult`
 
+A ship or twin head sleeps when `surprise_admit` is below 0.15. A fish checkpoint (`head.labels` set) still computes S and still names the class itself.
+
 The swarm does that **per node**, then fuses confirmations.
 
 ## 1. Laws you may not break
@@ -120,7 +122,11 @@ ablation section if it is a claimed contribution.
 
 `PolicyVector` in `types.py`, staircase in `policy/runtime_gate.py`.
 NSGA-II objectives in `policy/objectives.py` — six numbers, last is
-**negated** explanation coverage (we minimise).
+**negated** explanation coverage (we minimise). The manuscript comparison
+is the one-threshold rule in `eval/gate_compare.py`, run by
+`uaere eval --suite review`. That command chooses `tau` on validation.
+Do not put the test labels back into the threshold search. `T(e)` stays
+the hand-set sigmoid. Do not replace it with a weighted sum that adds to 1.
 
 ### Change the GUI
 

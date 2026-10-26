@@ -219,4 +219,5 @@ __marimo__/
 
 # AHAIF artifacts (models, twin traces, paper tables)
 artifacts/
-data/raw/
+# Hydrophone corpora (Dryad / Watkins). Do not commit. Anchored so src/uaere/data stays tracked.
+/data/

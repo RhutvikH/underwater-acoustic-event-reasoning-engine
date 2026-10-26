@@ -27,6 +27,13 @@ class EventClass(str, Enum):
     TANKER = "tanker"
     TUG = "tug"
     BIOLOGICAL = "biological"
+    WHALE = "whale"
+    DOLPHIN = "dolphin"
+    SPERM_WHALE = "sperm_whale"
+    SEAL = "seal"
+    FISH = "fish"
+    OPSANUS_TAU = "opsanus_tau"
+    OTHER = "other"
     GEOPHONY = "geophony"
     ARTIFACT = "artifact"
 
@@ -40,10 +47,70 @@ DEEPSHIP_LABELS: tuple[EventClass, ...] = (
     EventClass.REJECT,
 )
 
+ANIMAL_CLASSES: tuple[EventClass, ...] = (
+    EventClass.WHALE,
+    EventClass.DOLPHIN,
+    EventClass.SPERM_WHALE,
+    EventClass.SEAL,
+    EventClass.FISH,
+    EventClass.BIOLOGICAL,
+)
+
+VESSEL_CLASSES: tuple[EventClass, ...] = (
+    EventClass.CARGO,
+    EventClass.PASSENGER,
+    EventClass.TANKER,
+    EventClass.TUG,
+)
+
 # Classifier / Dirichlet head operates on this ordered label set.
 CLASS_INDEX: dict[EventClass, int] = {c: i for i, c in enumerate(DEEPSHIP_LABELS)}
 INDEX_CLASS: dict[int, EventClass] = {i: c for c, i in CLASS_INDEX.items()}
 REJECT_INDEX = CLASS_INDEX[EventClass.REJECT]
+
+
+def is_acoustic_event(cls: EventClass) -> bool:
+    """True for a genuine source (vessel or animal), not storm/fault/ambient."""
+    return cls not in {
+        EventClass.REJECT,
+        EventClass.OTHER,
+        EventClass.GEOPHONY,
+        EventClass.ARTIFACT,
+    }
+
+
+# Folder names on disk that mean the same label. The checkpoint stores the value.
+FISH_LABEL_ALIASES: dict[str, str] = {
+    "bwhistle": EventClass.OPSANUS_TAU.value,
+    "bwhistleclips": EventClass.OPSANUS_TAU.value,
+    "bwhistle_clips": EventClass.OPSANUS_TAU.value,
+    "boatwhistle": EventClass.OPSANUS_TAU.value,
+    "opsanus_tau": EventClass.OPSANUS_TAU.value,
+    "opsanus": EventClass.OPSANUS_TAU.value,
+    "other": EventClass.OTHER.value,
+    "otherclips": EventClass.OTHER.value,
+    "other_clips": EventClass.OTHER.value,
+    "reject": EventClass.OTHER.value,
+    "ambient": EventClass.OTHER.value,
+}
+
+# A call is present when the label is not one of these negatives.
+NEGATIVE_LABELS = frozenset(
+    {
+        EventClass.REJECT.value,
+        EventClass.OTHER.value,
+        EventClass.GEOPHONY.value,
+        EventClass.ARTIFACT.value,
+    }
+)
+
+
+def event_class_for_label(name: str) -> EventClass:
+    """Map a checkpoint label onto the enum. Unknown taxa stay FISH; the string is kept beside it."""
+    try:
+        return EventClass(name)
+    except ValueError:
+        return EventClass.FISH
 
 
 class ExecutionLevel(int, Enum):
@@ -129,9 +196,19 @@ class TrustScore:
     health_consistency: float
     env_consistency: float
     components: dict[str, float] = field(default_factory=dict)
+    label: EventClass | None = None
+    # Species string from a fish checkpoint. Empty on the ship head.
+    taxon: str = ""
 
     def predicted_class(self) -> EventClass:
+        if self.label is not None:
+            return self.label
         return INDEX_CLASS[int(np.argmax(self.p))]
+
+    def predicted_name(self) -> str:
+        if self.taxon:
+            return self.taxon
+        return self.predicted_class().value
 
 
 @dataclass
@@ -189,6 +266,10 @@ class WindowRecord:
     is_artifact: bool
     source_id: str = ""
     t0_s: float = 0.0
+    # Species string when the enum cannot name it. Empty means "use event_class".
+    taxon: str = ""
+    # True when temperature, salinity, and sea state were not in the recording.
+    environment_imputed: bool = False
 
 
 @dataclass(frozen=True)

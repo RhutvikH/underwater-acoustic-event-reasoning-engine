@@ -19,6 +19,7 @@ from uaere.types import (
     FaultClass,
     SensorHealth,
     WindowRecord,
+    is_acoustic_event,
 )
 
 SCENARIO_DIR = Path(__file__).resolve().parents[3] / "configs" / "twin"
@@ -120,6 +121,24 @@ def _builtin_scenarios() -> dict[str, dict]:
                 "artifact": 0.05,
             },
         },
+        "pam_field": {
+            "temperature_c": 14.0,
+            "salinity_psu": 34.0,
+            "depth_m": 55.0,
+            "sea_state": 2,
+            "turbulence": 0.12,
+            "ice_keel": 0.0,
+            "mix": {
+                "whale": 0.20,
+                "dolphin": 0.18,
+                "sperm_whale": 0.12,
+                "seal": 0.12,
+                "fish": 0.10,
+                "geophony": 0.14,
+                "reject": 0.10,
+                "artifact": 0.04,
+            },
+        },
     }
 
 
@@ -200,13 +219,18 @@ class TwinRenderer:
         )
         obs, oracle = apply_sensor(recv, self.hydro, health, rng)
         est = noisy_health_estimate(oracle, rng)
-        present = cls not in {EventClass.REJECT, EventClass.GEOPHONY, EventClass.ARTIFACT}
+        present = is_acoustic_event(cls)
         cause = {
             EventClass.TUG: "cause.vessel.tug",
             EventClass.CARGO: "cause.vessel.cargo",
             EventClass.TANKER: "cause.vessel.tanker",
             EventClass.PASSENGER: "cause.vessel.passenger",
             EventClass.BIOLOGICAL: "cause.taxon.odontocete",
+            EventClass.WHALE: "cause.taxon.humpback",
+            EventClass.DOLPHIN: "cause.taxon.odontocete",
+            EventClass.SPERM_WHALE: "cause.taxon.physeter",
+            EventClass.SEAL: "cause.taxon.pinniped",
+            EventClass.FISH: "cause.taxon.sciaenid",
             EventClass.GEOPHONY: "cause.env.wind_waves",
             EventClass.ARTIFACT: "cause.sensor.clipping",
             EventClass.REJECT: "cause.env.ambient",

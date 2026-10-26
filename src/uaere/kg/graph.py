@@ -16,10 +16,32 @@ CLASS_TO_EVENT = {
     EventClass.TANKER: "event.tanker_pass",
     EventClass.PASSENGER: "event.passenger_pass",
     EventClass.BIOLOGICAL: "event.biological",
+    EventClass.WHALE: "event.whale_song",
+    EventClass.DOLPHIN: "event.dolphin_click",
+    EventClass.SPERM_WHALE: "event.sperm_click",
+    EventClass.SEAL: "event.seal_vocal",
+    EventClass.FISH: "event.fish_chorus",
+    EventClass.OPSANUS_TAU: "event.toadfish_boatwhistle",
+    EventClass.OTHER: "event.ambient",
     EventClass.GEOPHONY: "event.geophony",
     EventClass.ARTIFACT: "event.artifact",
     EventClass.REJECT: "event.ambient",
 }
+
+
+def event_id_for(cls: EventClass, taxon: str = "") -> str:
+    """KG event node for a predicted label. Unknown taxa only match a node that exists."""
+    if taxon:
+        named = f"event.{taxon}"
+        if taxon == EventClass.OPSANUS_TAU.value:
+            return CLASS_TO_EVENT[EventClass.OPSANUS_TAU]
+        if taxon in {EventClass.OTHER.value, EventClass.REJECT.value}:
+            return CLASS_TO_EVENT[EventClass.OTHER]
+        try:
+            return CLASS_TO_EVENT[EventClass(taxon)]
+        except ValueError:
+            return named
+    return CLASS_TO_EVENT[cls]
 
 
 class MarineAcousticKG:
@@ -44,6 +66,39 @@ class MarineAcousticKG:
 
     def sea_state_min(self, node_id: str) -> int:
         return int(self.meta.get(node_id, {}).get("sea_state_min") or 0)
+
+    def ensure_taxon(self, label: str) -> str:
+        """Name-only event and cause for a trained label. No frequency cues are invented."""
+        safe = str(label).strip()
+        if not safe:
+            raise ValueError("ensure_taxon needs a label")
+        event_id = f"event.{safe}"
+        cause_id = f"cause.taxon.{safe}"
+        if event_id not in self.g:
+            node = {
+                "id": event_id,
+                "type": "Event",
+                "label": safe.replace("_", " "),
+                "cues": {},
+            }
+            self.g.add_node(event_id, **node)
+            self.meta[event_id] = node
+        if cause_id not in self.g:
+            node = {
+                "id": cause_id,
+                "type": "Cause",
+                "label": safe.replace("_", " "),
+                "cues": {},
+            }
+            self.g.add_node(cause_id, **node)
+            self.meta[cause_id] = node
+        linked = any(
+            dst == cause_id and data.get("rel") == "caused_by"
+            for _, dst, data in self.g.out_edges(event_id, data=True)
+        )
+        if not linked:
+            self.g.add_edge(event_id, cause_id, rel="caused_by")
+        return cause_id
 
     def to_turtle(self) -> str:
         lines = ["@prefix ma: <https://uaere.local/marine#> .", ""]

@@ -44,21 +44,29 @@ python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 
-uaere demo --nodes 8 --port 8765          # browser GUI + Unity JSON
-# open http://127.0.0.1:8765/
+uaere demo --model oracle --nodes 8 --port 8765   # scripted twin picture
+# open http://127.0.0.1:8765/  (play button = headphones, not the ocean)
+# default --model auto uses species_head.joblib, else fish_head.joblib, else the ship logistic
 
 uaere data summarize --n 64 --seed 0
 uaere twin --scenario busy_strait --n 16 --out artifacts/twin
 uaere kg --out artifacts/kg/marine_acoustic.ttl
-uaere train --n 200 --steps 200 --out artifacts/models
+uaere train --dataset twin --n 200 --steps 200 --out artifacts/models
+uaere train --dataset fish --root data/toadfish --out artifacts/models
 uaere eval --suite paper --n-windows 160 --seed 0 --out artifacts/paper
+uaere eval --suite review --root data/toadfish --out artifacts/paper/review_upgrade --max-per-class 3000 --min-files 40 --steps 2000
+uaere train --dataset species --root data/species --out artifacts/models
+uaere eval --suite species --root data/species --out artifacts/paper
 python -m pytest tests -q
 ```
 
-The command that matters for the paper is `uaere eval --suite paper`.
-It writes `artifacts/paper/suite.md` and `suite.json`. A reference run
-(seed 0) gave trust ROC-AUC **0.916** vs energy-threshold **0.069**,
-ontology hit-rate **1.00**, and ~32× less energy than always-on L3.
+`uaere eval --suite paper` is the synthetic gating appendix
+(`artifacts/paper/suite.md`). A reference twin run (seed 0) gave trust
+ROC-AUC **0.916** vs energy-threshold **0.069**, ontology hit-rate **1.00**,
+and ~32× less energy than always-on L3. Those figures are not ocean
+performance and they are not the toadfish saving. The toadfish table is
+`uaere eval --suite review` (seeds 0, 1, and 2). See
+[`docs/DATASETS.md`](docs/DATASETS.md) and [`paper/manuscript.md`](paper/manuscript.md).
 
 **Which document do I want?** [`docs/GUIDE_INDEX.md`](docs/GUIDE_INDEX.md)
 

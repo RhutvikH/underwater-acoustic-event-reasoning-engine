@@ -110,6 +110,7 @@ Digital twin  →  observation x, state s, health estimate h
                      │
  L0 always-on DSP + predictive-coding surprise S
                      │ surprise_admit(S)  (not energy ≷ θ, not φ0 logistic)
+                     │ species head: S is logged; 0.15 does not replace the label
  L1 log-Mel + env-norm + evidential Dirichlet
                      │ C_wake, T(e), u_a, u_e
          Multi-objective gate π*(T)

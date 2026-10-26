@@ -71,9 +71,12 @@ lifetime reputation.
 how they relate. Not ChatGPT. A sentence comes out, and we check it by
 muting the frequencies that cause should have used.
 
-**Multi-objective policy.** A search that picks thresholds so we miss
-few ships, cry wolf rarely, and spend few joules. NSGA-II finds a
-front of compromises; we pick the “knee.”
+**Multi-objective policy.** On the synthetic ocean, a search picks
+thresholds so the node misses few events, raises few false alarms, and
+spends few modelled joules. NSGA-II finds a front; the twin appendix
+reports one knee of that front. The toadfish paper uses a simpler rule:
+one threshold, chosen on validation, that decides whether a window pays
+for an explanation. The fish label is still produced either way.
 
 **TRL-4.** Lab validation. Not a deployed ocean product.
 
@@ -92,14 +95,21 @@ must still file. We cannot promise a grant.
 ```bash
 cd /home/kira/Documents/underwater-acoustic-event-reasoning-engine
 source .venv/bin/activate
-uaere demo --nodes 8 --port 8765
+uaere demo --model oracle --nodes 8 --port 8765
 ```
+
+That `--model oracle` flag is the scripted twin picture (the amber source
+is a drawn whale, dolphin, seal, fish, or storm). Without it, the demo
+loads `artifacts/models/fish_head.joblib` when you have trained on real
+clips, and otherwise a ship logistic head. The class on each node is that
+model's decision.
 
 3. Open a browser at **http://127.0.0.1:8765/**
 4. You should see an overhead ocean, coloured nodes, an amber source,
    magenta lines when neighbours are asked, and a gold ring when a node
    pays for an explanation.
-5. Click a node. Read `C_wake`, `T(e)`, battery, sentence.
+5. Click a node. Read `C_wake`, `T(e)`, class, accepted causes, sentence.
+   Press play to hear the 1 s window that node scored. Headphones only.
 6. Ctrl-C in the terminal stops it.
 
 **If the venv does not exist:**
@@ -113,7 +123,8 @@ pip install -e ".[dev]"
 **Paper numbers (no GUI):**
 
 ```bash
-uaere eval --suite paper --n-windows 160 --seed 0
+uaere eval --suite paper --n-windows 160 --seed 0    # synthetic gating appendix
+uaere eval --suite review --root data/toadfish --out artifacts/paper/review_upgrade --max-per-class 3000 --min-files 40 --steps 2000
 ```
 
 **Unity:** leave `uaere demo` running, open the Unity project, add the
@@ -140,6 +151,10 @@ See `docs/RASPBERRY_PI.md`.
 - Do not say we invented underwater sound-speed equations (Mackenzie,
   Thorp are 1960s–80s). We *use* them inside a new *system*.
 - Do not say “AI chatbot.” There is no LLM in the loop on purpose.
+- Do not say the play button puts sound into the water. It plays the scored window to a person.
+- Do not say the toadfish head beats the published ResNet-50. It does not claim that.
+- Do not quote the 0.916 twin AUC as the fish result.
+- Do not quote the old fish-suite knee (3.82 mJ) as the paper’s energy saving. The review table is the one to use, and on these clips the trust gate matches a confidence threshold.
 
 If you only remember one index of documents, it is
 [`docs/GUIDE_INDEX.md`](GUIDE_INDEX.md).

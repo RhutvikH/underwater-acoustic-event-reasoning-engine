@@ -5,9 +5,10 @@ This is the operator manual. The science and claims live in
 
 **What you are running.** A trust-aware, energy-gated underwater acoustic
 event reasoner (package name `uaere`, public name AHAIF). It is a **TRL-4
-simulation**. There is no hydrophone, no MCU firmware image, and no web UI.
+simulation**. There is no hydrophone and no MCU firmware image.
 Every joule, millisecond, and security check is produced by the digital twin
-and a software-defined hardware abstraction.
+and a software-defined hardware abstraction. The browser demo draws that
+simulation. Its play button is the 1 s window a node scored, for headphones.
 
 **Hard rule.** The live pipeline never does `if energy > threshold`. That
 baseline exists only for papers, in
@@ -19,12 +20,15 @@ baseline exists only for papers, in
 
 | Command | What it produces |
 |---------|------------------|
-| `uaere eval --suite paper` | `artifacts/paper/suite.json` + `suite.md` — every table the capstone/paper needs |
+| `uaere eval --suite paper` | `artifacts/paper/suite.json` + `suite.md` — synthetic gating appendix |
+| `uaere eval --suite review` | `artifacts/paper/review_upgrade/review_upgrade.json` — toadfish seeds 0, 1, and 2. This is the manuscript table. |
+| `uaere eval --suite fish` | `artifacts/paper/fish_suite.json` + `fish_suite.md` — preserved single-seed toadfish run. Do not re-run it over that file. |
 | `uaere twin` | 1-second WAV clips from the digital twin |
 | `uaere data summarize` | class counts of a twin draw |
-| `uaere train` | `artifacts/models/evidential_head.npz` |
+| `uaere train --dataset twin` | `artifacts/models/last.npz` (not loaded by `predict`) |
+| `uaere train --dataset fish` | `artifacts/models/fish_head.joblib` |
 | `uaere kg` | Turtle export of the marine acoustic knowledge graph |
-| `pytest tests` | 24 unit/integration tests |
+| `pytest tests` | unit and integration tests, including the fish checkpoint path |
 
 The paper suite prints five booleans. All five must be `true` for a green lab
 notebook entry:
@@ -86,11 +90,20 @@ uaere twin --scenario busy_strait --n 16 --out artifacts/twin --seed 0
 # 3. Export the knowledge graph
 uaere kg --out artifacts/kg/marine_acoustic.ttl
 
-# 4. Train the evidential head on twin-synthetic windows
+# 4. Train the ship head on twin-synthetic windows (writes last.npz, not a fish checkpoint)
 uaere train --n 200 --steps 200 --seed 0 --out artifacts/models
 
-# 5. Run the paper evaluation (the one that matters)
+# 5. Synthetic gating appendix
 uaere eval --suite paper --n-windows 160 --seed 0 --out artifacts/paper
+
+# 6. Real fish head, after wavclips_TFv4.zip is unzipped (see docs/DATASETS.md)
+uaere train --dataset fish --root data/toadfish --max-per-class 3000 --seed 0 --out artifacts/models
+uaere eval --suite review --root data/toadfish --out artifacts/paper/review_upgrade --max-per-class 3000 --min-files 40 --steps 2000
+uaere predict --wav data/toadfish/wavclips/bwhistleclips/<one-file>.wav
+
+# 7. Species head, after data/species/<species>/*.wav exists (see docs/DATASETS.md)
+uaere train --dataset species --root data/species --out artifacts/models --seed 0
+uaere eval --suite species --root data/species --out artifacts/paper --seed 0
 ```
 
 Step 5 takes on the order of **10–40 seconds** on a laptop. Then open:
@@ -110,8 +123,24 @@ A reference run (seed 0, 160 windows + high-sea-state extra) produced:
 | Always-on L3 energy | 6.66 mJ / window |
 | 10 Wh battery life (gated vs always-on) | ~2003 d vs ~63 d |
 
-Those numbers are **twin-synthetic, not DeepShip**. Quote them as TRL-4 lab
-results, not as ocean-deployment performance.
+Those numbers are **twin-synthetic**. They are the gating appendix, not the
+toadfish result and not DeepShip. The manuscript fish table is
+`artifacts/paper/review_upgrade/review_upgrade.md`. Three recording-locked
+seeds give test macro-F1 0.844 ± 0.004. Wake ROC-AUC is 0.908 ± 0.009.
+The trust explanation gate matches a confidence threshold on these files:
+mean modelled energy 5.779 mJ per window, saving 10.4% ± 0.7% against
+always-Level-3 on the STM32L476 datasheet profile. That saving is an
+estimate. Seed 0 of the same classifier is macro-F1 0.839, preserved in
+`artifacts/paper/fish_suite.json`. The knee in that older file was selected
+on the test split. Do not quote its 3.82 mJ figure as the review result.
+The Mel-only copy is `artifacts/paper/fish_suite_melstats.md` (macro-F1 0.827).
+The species table is `artifacts/paper/species_suite.md`. Seed 0 test macro-F1
+on the 16 Watkins species that cleared the floors is 0.281. That misses the
+pre-registered bar of 0.70. Watkins seeds 1 and 2 were not run. The checkpoint
+is `artifacts/models/species_head.joblib`. Species train and species eval use
+a logistic budget of at least 2000 iterations. The review suite floors
+`--steps` at 2000. An explicit `--steps` above 2000 is kept. The argparse
+default of 250 still applies to the paper suite and to `--suite fish`.
 
 ---
 
@@ -134,11 +163,11 @@ uaere eval --suite paper \
 
 | Flag | Default | Meaning |
 |------|---------|---------|
-| `--suite` | `paper` | only `paper` exists today |
-| `--out` | `artifacts/paper` | JSON + Markdown destination |
+| `--suite` | `paper` | `paper` (synthetic), `review` (toadfish seeds 0–2), `fish` (older single-seed writer), or `species` (one folder per species) |
+| `--out` | `artifacts/paper` | JSON + Markdown destination. `review` redirects the default to `artifacts/paper/review_upgrade`. |
 | `--n-windows` | 240 | twin windows from `busy_strait` (the suite also adds `n/3` high-sea-state windows) |
-| `--seed` | 0 | numpy Generator seed; camera-ready uses `{0,1,2}` |
-| `--steps` | 250 | logistic-regression `max_iter` for the evidential lift |
+| `--seed` | 0 | numpy Generator seed. `review` ignores it and always runs 0, 1, and 2. Watkins remains seed 0. |
+| `--steps` | 250 | logistic `max_iter` for the paper suite and `--suite fish`. `review` floors this at 2000. Species train and species eval use at least 2000. |
 
 Exit code `0` if every success flag is true, else `1`.
 
@@ -150,8 +179,27 @@ Exit code `0` if every success flag is true, else `1`.
 - `wake.trust_ece` — calibration of that score vs `event_present`.
 - `explanations.ontology_hit_rate` — Objective 2. Top KG cause matches the
   twin’s `cause_id`.
-- `gating.*` — Objective 3. NSGA-II Pareto knee vs always-on L3. Miss rate
-  is matched by construction (same detector, less compute).
+- `gating.*` — Objective 3 of the **synthetic** appendix. NSGA-II Pareto
+  knee vs always-on L3 on twin windows. This block is not the toadfish
+  gate. The toadfish comparison is one validation-chosen threshold per
+  score, written by `--suite review`.
+
+**How to read `review_upgrade.json`**
+
+- `summary.classification_macro_f1` — logistic macro-F1, mean and sample
+  standard deviation over seeds 0, 1, and 2. The explanation gate does not
+  change this number.
+- `summary` rows for trust, confidence, confidence–uncertainty,
+  trust-without-environment, and trust-without-uncertainty — same test
+  mask on this corpus after the threshold is retuned.
+- Uncertainty-only and entropy rows — a worse explanation policy. They
+  send confident negatives to Level 3.
+- Energy fields — `stm32l476` datasheet joules. `E_g` is 0. The Level-3
+  path includes the unused Level-2 MAC budget.
+- `abstention` — a separate baseline. It is not the macro-F1 above.
+- SNR rows — white noise added to the seed-0 test waveforms before
+  features. Derived data. The head and the clean-validation threshold
+  stay frozen.
 - `hardware` — millijoules per level on five ISA profiles.
 - `security.tamper_caught` — mutated firmware fails secure boot.
 - `security.gd32_refused_authenticated_l2` — RISC-V profile without a
@@ -174,6 +222,7 @@ Scenarios (YAML in `configs/twin/`, builtins if the file is missing):
 | `sensor_fault_injection` | 35% bias / dropout / gain-wander |
 | `calm_coastal` | builtin only, quieter mix |
 | `ice_keel` | builtin only, optional scatterer; **not a paper claim** |
+| `pam_field` | **demo default** — whale, dolphin, sperm whale, seal, fish + storm |
 
 Each WAV is 16 kHz, mono, 1 second. The filename is `{scenario}-{index}.wav`.
 Labels are **not** in the WAV; they live on `WindowRecord` objects if you use
@@ -209,17 +258,41 @@ uaere train --scenario busy_strait --n 200 --steps 200 --seed 0 --out artifacts/
 
 Fits a class-balanced multinomial logistic on Mel statistics, then lifts
 `p_hat` to a Dirichlet via `alpha = 1 + tau * p_hat`
-(`tau = 20`). Writes `evidential_head.npz`. The paper suite **retrains**
-its own head; this command is for inspection and for the Python API below.
+(`tau = 20`). `--dataset twin` (the default) and `--dataset watkins` write
+`artifacts/models/last.npz`. The paper suite **retrains** its own ship head;
+that npz is for inspection.
+
+```bash
+uaere train --dataset fish --root data/toadfish --max-per-class 3000 --min-files 40 --seed 0
+```
+
+Fish training writes `artifacts/models/fish_head.joblib` and returns before
+the npz path. A missing `--root` exits 2. It does not fall back to ships.
+
+### `uaere predict`
+
+```bash
+uaere predict --wav path/to/clip.wav --checkpoint artifacts/models/fish_head.joblib
+```
+
+Loads the joblib file and scores the centre 1 s at that checkpoint's sample rate. With no `--checkpoint`, a species checkpoint is used when `artifacts/models/species_head.joblib` exists, otherwise the fish checkpoint. It does not retrain. A missing checkpoint exits 2.
 
 ### `uaere demo` (presentation GUI + Unity feed)
 
 ```bash
 uaere demo --nodes 8 --port 8765
+# default model is auto: species_head.joblib if it exists, else fish_head.joblib, else the ship logistic
+uaere demo --model oracle --scenario pam_field   # twin illustration; gold class, not a paper result
+uaere demo --model fish --replay data/toadfish --checkpoint artifacts/models/fish_head.joblib
+uaere demo --model species --replay data/species --checkpoint artifacts/models/species_head.joblib
 ```
 
 Open http://127.0.0.1:8765/ — live cheap-sensor field, neighbour-wake
-links, click-to-inspect. Unity polls `/api/state` (see `unity/AHAIF/`).
+links, click-to-inspect. The class on a node is the classifier's decision.
+Press play to hear that node's 1 s window in headphones. That is not sound
+into the water. `--model oracle` is how you show the scripted animal rings.
+Unity polls `/api/state` (see `unity/AHAIF/`). `GET /api/audio?node=n0`
+returns the scored window as 16-bit WAV at the window's sample rate.
 
 ### `uaere swarm`
 
@@ -303,7 +376,7 @@ if result.explanation:
 | `trust.wake_confidence` | `C_wake`, detection score |
 | `trust.event_trust` | `T(e)`, what the **gate** sees |
 | `trust.u_aleatoric` / `u_epistemic` | Dirichlet uncertainties |
-| `event_class` | predicted label (CNN if L2+, else argmax of Dirichlet) |
+| `event_class` | label from the trained head (`predicted_class`). TinyCNN is a MAC budget, not this name. |
 | `explanation.sentence` | one-line cause chain (only if L3+) |
 | `energy_j` | modelled compute (+ TX if L4) on the placed device |
 | `authenticated` | HMAC of `(model_id ‖ window ‖ output)` verified |
@@ -371,8 +444,9 @@ hydrophone window (1 s, 16 kHz)
         │
         ▼
  L0  rFFT moments (always computed) + predictive-coding surprise S
-        │  surprise_admit(S); sleep if admit < 0.15
+        │  ship/twin head: surprise_admit(S); sleep if admit < 0.15
         │  (ocean matches Knudsen model — still not "energy > theta")
+        │  fish checkpoint: S is recorded; the species label is the classifier
         ▼
  L1  log-Mel + FiLM env-norm + evidential Dirichlet → C_wake, T(e)
         │
@@ -414,6 +488,11 @@ of the non-dominated front is what `suite.json` reports.
 - Do **not** add an LLM, dashboard, or always-on L3 “for the demo”. That
   destroys the energy claim and creates prior art noise.
 - Do **not** quote twin-synthetic AUC as DeepShip performance.
+- Do **not** quote the 3.82 mJ knee in `fish_suite.json` as the toadfish
+  energy result. The manuscript uses the review suite.
+- Do **not** say the trust score beats a confidence threshold on the
+  Pamlico files. The review run shows the same windows.
+- Do **not** call modelled joules a measured underwater deployment.
 - Do **not** treat the ice-keel YAML as a contribution. It is a stress
   scenario, not a claim.
 

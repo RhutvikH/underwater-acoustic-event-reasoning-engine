@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from uaere.causal.reasoner import CausalReasoner
-from uaere.classify.train import _mel_stats, extract_features, train_evidential, transform
+from uaere.classify.train import extract_features, train_evidential, transform
 from uaere.hardware.profiles import load_profile
 from uaere.kg.graph import load_kg
 from uaere.math.energy import compute_energy_j
@@ -42,6 +42,7 @@ from uaere.types import (
     FaultClass,
     PolicyVector,
     SensorHealth,
+    is_acoustic_event,
 )
 
 
@@ -69,6 +70,8 @@ class NodeView:
     confirmations: int
     snr_db: float
     reason: str
+    accepted: list[str] = field(default_factory=list)
+    model: str = "oracle"
 
 
 @dataclass
@@ -81,6 +84,7 @@ class SwarmTick:
     links: list[dict]
     kpis: dict
     sink_xyz: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    model: str = "oracle"
 
 
 class SwarmField:
@@ -89,13 +93,23 @@ class SwarmField:
     def __init__(
         self,
         n_nodes: int = 8,
-        scenario: str = "busy_strait",
+        scenario: str = "pam_field",
         seed: int = 0,
         extent_m: float = 1200.0,
         battery_j: float = 10.0 * 3600.0,
+        model: str = "oracle",
+        replay_root: str | None = None,
+        checkpoint: str | None = None,
     ) -> None:
         self.n_nodes = int(n_nodes)
         self.scenario = scenario
+        self.model = str(model)
+        self.replay_root = replay_root
+        self.checkpoint = checkpoint
+        self._replay: list | None = None
+        self._replay_i = 0
+        self._audio: dict[str, np.ndarray] = {}
+        self.playback_fs = WORKING_FS
         self.seed = seed
         self.extent_m = extent_m
         self.rng = make_rng(seed)
@@ -108,11 +122,11 @@ class SwarmField:
         self.kg = load_kg()
         self.reasoner = CausalReasoner(self.kg)
         self.policy = PolicyVector(
-            tau1=0.25,
-            tau2=0.45,
-            tau3=0.70,
+            tau1=0.22,
+            tau2=0.40,
+            tau3=0.62,
             tau_collab_lo=0.40,
-            tau_collab_hi=0.70,
+            tau_collab_hi=0.60,
             device_id="stm32l476",
             require_authenticated=False,  # mixed cheap field; auth is per-profile
         )
@@ -152,28 +166,86 @@ class SwarmField:
         self.atlas = InterferometricAtlas([n.node_id for n in nodes])
 
     def warmup(self, n_train: int = 80) -> None:
+        if self.model == "oracle":
+            # Twin gold-class dummy. Not a paper result. Ask for it with --model oracle.
+            self.head = None
+            self.engine = None
+            return
+        if self.model == "fish":
+            from uaere.models.fish_head import DEFAULT_FISH_CHECKPOINT, load_fish_checkpoint
+
+            path = self.checkpoint or DEFAULT_FISH_CHECKPOINT
+            self.head, _ = load_fish_checkpoint(path)
+            self.engine = TrustEngine(self.head)
+            if self.replay_root:
+                from uaere.data.adapters import FishCallAdapter
+
+                self._replay = FishCallAdapter(
+                    self.replay_root, seed=self.seed, max_per_class=64, min_files=1
+                ).load()
+                if not self._replay:
+                    raise FileNotFoundError(f"no fish clips under {self.replay_root}")
+            return
+        if self.model == "species":
+            from uaere.models.species_head import DEFAULT_SPECIES_CHECKPOINT, load_species_checkpoint
+
+            path = self.checkpoint or DEFAULT_SPECIES_CHECKPOINT
+            self.head, meta = load_species_checkpoint(path)
+            self.engine = TrustEngine(self.head)
+            self.playback_fs = int(meta.get("sample_rate") or WORKING_FS)
+            for label in self.head.labels or ():
+                self.kg.ensure_taxon(str(label))
+            if self.replay_root:
+                from uaere.data.species import SpeciesFolderAdapter
+
+                cutoff = 7_000.0 if self.playback_fs <= 16_000 else 14_000.0
+                # A demo folder does not have to clear the paper floors.
+                self._replay = SpeciesFolderAdapter(
+                    self.replay_root,
+                    seed=self.seed,
+                    max_per_class=16,
+                    min_files=1,
+                    min_groups=1,
+                    min_classes=1,
+                    working_fs=self.playback_fs,
+                    cutoff_hz=cutoff,
+                    require_recording_ids=False,
+                ).load()
+                if not self._replay:
+                    raise FileNotFoundError(f"no species clips under {self.replay_root}")
+            return
         recs = TwinRenderer(self.scenario, seed=self.seed + 17).render_dataset(n_train)
         bun = extract_features(recs, self.norm)
         self.head = train_evidential(bun, steps=120, seed=self.seed)
         self.engine = TrustEngine(self.head)
 
     def step(self) -> SwarmTick:
-        if self.engine is None or self.head is None:
+        if self.model != "oracle" and (self.engine is None or self.head is None):
             self.warmup()
-        assert self.engine is not None and self.head is not None
-        mix = self.cfg.get("mix", {"tug": 0.2, "reject": 0.3, "geophony": 0.2, "cargo": 0.3})
+        mix = self.cfg.get(
+            "mix",
+            {
+                "whale": 0.2,
+                "dolphin": 0.2,
+                "geophony": 0.2,
+                "reject": 0.15,
+                "seal": 0.15,
+                "fish": 0.1,
+            },
+        )
         names = list(mix.keys())
         probs = np.array([float(mix[k]) for k in names], dtype=np.float64)
         probs = probs / probs.sum()
-        name = str(self.rng.choice(names, p=probs))
-        cls = EventClass(name)
-        present = cls in {
-            EventClass.TUG,
-            EventClass.CARGO,
-            EventClass.TANKER,
-            EventClass.PASSENGER,
-            EventClass.BIOLOGICAL,
-        }
+        replay_rec = None
+        if self._replay:
+            replay_rec = self._replay[self._replay_i % len(self._replay)]
+            self._replay_i += 1
+            cls = replay_rec.event_class
+            present = replay_rec.event_present
+        else:
+            name = str(self.rng.choice(names, p=probs))
+            cls = EventClass(name)
+            present = is_acoustic_event(cls)
         # Honest idle drain every 1 s tick (engineering, not a claim).
         for node in self.net.nodes.values():
             idle_j = load_profile(node.profile_id).idle_mw * 1e-3
@@ -192,12 +264,22 @@ class SwarmField:
             snr_db=10.0,
             turbulence=float(self.cfg.get("turbulence", 0.1)),
         )
-        source = synthesize_source(cls, self.n, WORKING_FS, self.rng, range_m=400.0)
+        source = (
+            replay_rec.waveform
+            if replay_rec is not None
+            else synthesize_source(cls, self.n, WORKING_FS, self.rng, range_m=400.0)
+        )
 
         # Pass 1: every cheap node hears the *same* physical event at its range.
+        # A real replay is the identical centre window at every node: propagation
+        # would leave the Pamlico-trained head out of its domain, and the human
+        # is listening to the clip the classifier scored.
         hears: dict[str, dict] = {}
         for node in self.net.nodes.values():
-            hears[node.node_id] = self._hear(node, source, src_xyz, cls, state)
+            if replay_rec is not None:
+                hears[node.node_id] = self._hear_replay(node, replay_rec)
+            else:
+                hears[node.node_id] = self._hear(node, source, src_xyz, cls, state)
         nids = list(hears.keys())
         if not present:
             for i, a in enumerate(nids):
@@ -243,25 +325,20 @@ class SwarmField:
                     level, reason = ExecutionLevel.L3, "collab_confirmed_l3"
             expl = None
             event_cls = tscore.predicted_class()
-            report = None
-            if level.value >= ExecutionLevel.L3.value:
+            shown = tscore.predicted_name()
+            detected = level.value >= ExecutionLevel.L1.value and tscore.wake_confidence >= 0.45
+            accepted: list[str] = []
+            if detected and level.value >= ExecutionLevel.L3.value:
                 rec = h["record"]
                 expl = self.reasoner.explain(
-                    rec.event_class if present else event_cls,
+                    event_cls,
                     rec.waveform,
                     rec.sample_rate,
                     rec.environment,
+                    taxon=tscore.taxon,
                 )
+                accepted = list(expl.accepted)
                 self.kpis["explanations"] += 1
-                report = report_to_sink(self.net, self.atlas, nid)
-                if report.get("delivered"):
-                    self.kpis["reports_to_sink"] += 1
-                    hops = report.get("hops") or []
-                    for a, b in zip(hops[:-1], hops[1:], strict=False):
-                        links.append({"src": a, "dst": b, "kind": "sink_path"})
-                    self.kpis["joules"] += float(report.get("joules") or 0.0)
-                else:
-                    self.kpis["undeliverable"] += 1
             profile = load_profile(node.profile_id)
             tx_bits = 256 if woke[nid] else 0
             energy = compute_energy_j(level, MACS, profile, tx_bits=tx_bits)
@@ -283,7 +360,7 @@ class SwarmField:
                     level=int(level),
                     wake=float(wake),
                     trust=float(tscore.event_trust),
-                    event_class=event_cls.value,
+                    event_class=shown,
                     explanation=expl.sentence if expl else None,
                     energy_j=float(energy),
                     authenticated=auth,
@@ -291,8 +368,25 @@ class SwarmField:
                     confirmations=confirmations[nid],
                     snr_db=float(h["snr_db"]),
                     reason=reason,
+                    accepted=accepted,
+                    model=self.model,
                 )
             )
+
+        # One sink report per event: the surest detector, not every L3 node.
+        reporters = [v for v in views if v.level >= 3 and v.wake >= 0.5]
+        if reporters:
+            lead = max(reporters, key=lambda v: v.trust)
+            report = report_to_sink(self.net, self.atlas, lead.node_id)
+            if report.get("delivered"):
+                self.kpis["reports_to_sink"] += 1
+                hops = report.get("hops") or []
+                for a, b in zip(hops[:-1], hops[1:], strict=False):
+                    links.append({"src": a, "dst": b, "kind": "sink_path"})
+                self.kpis["joules"] += float(report.get("joules") or 0.0)
+                lead.reason = lead.reason + "+sink"
+            else:
+                self.kpis["undeliverable"] += 1
 
         self.kpis["ticks"] += 1
         if present:
@@ -313,14 +407,23 @@ class SwarmField:
             },
             source={
                 "xyz": list(src_xyz),
-                "class": cls.value,
+                "class": (replay_rec.taxon or replay_rec.event_class.value)
+                if replay_rec is not None
+                else cls.value,
                 "present": present,
                 "active": True,
+                "replay": replay_rec is not None,
+                "note": (
+                    "tape label; each node shows the classifier, not this label"
+                    if replay_rec is not None
+                    else "twin draw"
+                ),
             },
             nodes=views,
             links=links,
             kpis=dict(self.kpis),
             sink_xyz=self.net.sink_xyz,
+            model=self.model,
         )
         self._last = tick
         return tick
@@ -340,6 +443,8 @@ class SwarmField:
         mixed = _mix_snr(recv, ambient, snr_db, cls)
         health = SensorHealth(fault=FaultClass.NONE)
         obs, oracle = apply_sensor(mixed, self.hydro, health, self.rng)
+        self._audio[node.node_id] = obs
+        self.playback_fs = WORKING_FS
         est = noisy_health_estimate(oracle, self.rng)
         from uaere.types import WindowRecord
 
@@ -349,32 +454,25 @@ class SwarmField:
             environment=state,
             health_oracle=oracle,
             health_estimate=est,
-            event_present=cls
-            in {
-                EventClass.TUG,
-                EventClass.CARGO,
-                EventClass.TANKER,
-                EventClass.PASSENGER,
-                EventClass.BIOLOGICAL,
-            },
-            event_class=cls
-            if cls
-            in {
-                EventClass.TUG,
-                EventClass.CARGO,
-                EventClass.TANKER,
-                EventClass.PASSENGER,
-                EventClass.BIOLOGICAL,
-            }
-            else EventClass.REJECT,
+            event_present=is_acoustic_event(cls),
+            event_class=cls if is_acoustic_event(cls) else EventClass.REJECT,
             cause_id="",
             is_artifact=False,
             source_id=node.node_id,
         )
         S = surprise(obs, WORKING_FS, state)
-        if surprise_admit(S) < 0.12:
+        if self.model == "oracle":
+            from uaere.models.oracle import oracle_trust
+
+            tscore = oracle_trust(cls, est, state, snr_db=snr_db)
+            tscore.components["surprise"] = S
+            return {"record": rec, "trust": tscore, "snr_db": snr_db, "surprise": S}
+        # Same rule as AhaifPipeline: a labelled species head is not vetoed by the twin sigmoid.
+        labelled = self.head is not None and getattr(self.head, "labels", None)
+        if not labelled and surprise_admit(S) < 0.12:
+            feat_dim = int(np.asarray(getattr(self.head, "_feat_mu", [0.0])).shape[0])
             dummy = self.engine.score(  # type: ignore[union-attr]
-                np.zeros(self.head.w1.shape[1]),  # type: ignore[union-attr]
+                np.zeros(feat_dim or self.head.w1.shape[1]),  # type: ignore[union-attr]
                 np.zeros((32, 4)),
                 est,
                 state,
@@ -382,13 +480,61 @@ class SwarmField:
             dummy.event_trust = 0.05
             dummy.wake_confidence = 0.05
             dummy.components["surprise"] = S
+            dummy.label = EventClass.REJECT
+            dummy.taxon = ""
             return {"record": rec, "trust": dummy, "snr_db": snr_db, "surprise": S}
-        mel = log_mel(obs, WORKING_FS)
-        mel_n = self.norm.normalize_mel(mel, state)
-        feats = transform(self.head, _mel_stats(mel_n))  # type: ignore[arg-type]
+        if getattr(self.head, "feature", None) in {"image", "summary"}:
+            from uaere.models.species_head import species_features
+
+            feats, mel_n = species_features(self.head, obs, WORKING_FS)
+        else:
+            mel = log_mel(obs, WORKING_FS)
+            mel_n = self.norm.normalize_mel(mel, state)
+            from uaere.models.fish_head import vector_for_head
+
+            feats = transform(self.head, vector_for_head(self.head, obs, WORKING_FS, mel_n))  # type: ignore[arg-type]
         tscore = self.engine.score(feats, mel_n, est, state)  # type: ignore[union-attr]
         tscore.components["surprise"] = S
         return {"record": rec, "trust": tscore, "snr_db": snr_db, "surprise": S}
+
+    def _hear_replay(self, node: AcousticNode, rec) -> dict:
+        """Score the real centre window. Every node hears that same clip."""
+        from uaere.types import WindowRecord
+
+        obs = np.asarray(rec.waveform, dtype=np.float64)
+        self._audio[node.node_id] = obs
+        self.playback_fs = int(rec.sample_rate)
+        window = WindowRecord(
+            waveform=obs,
+            sample_rate=rec.sample_rate,
+            environment=rec.environment,
+            health_oracle=rec.health_oracle,
+            health_estimate=rec.health_estimate,
+            event_present=rec.event_present,
+            event_class=rec.event_class,
+            cause_id=rec.cause_id,
+            is_artifact=rec.is_artifact,
+            source_id=rec.source_id,
+            taxon=rec.taxon,
+            environment_imputed=rec.environment_imputed,
+        )
+        state = rec.environment
+        fs = int(rec.sample_rate)
+        if getattr(self.head, "feature", None) in {"image", "summary"}:
+            from uaere.models.species_head import species_features
+
+            feats, mel_n = species_features(self.head, obs, fs)
+        else:
+            mel = log_mel(obs, fs)
+            mel_n = self.norm.normalize_mel(mel, state)
+            from uaere.models.fish_head import vector_for_head
+
+            feats = transform(self.head, vector_for_head(self.head, obs, fs, mel_n))  # type: ignore[arg-type]
+        tscore = self.engine.score(feats, mel_n, rec.health_estimate, state)  # type: ignore[union-attr]
+        S = surprise(obs, fs, state)
+        tscore.components["surprise"] = S
+        tscore.components["replay"] = 1.0
+        return {"record": window, "trust": tscore, "snr_db": float("nan"), "surprise": S}
 
     def _nearest(self, nid: str, k: int = 2) -> list[str]:
         src = self.net.nodes[nid]
@@ -414,5 +560,6 @@ def tick_to_json(tick: SwarmTick) -> dict:
         "nodes": [n.__dict__ for n in tick.nodes],
         "links": tick.links,
         "kpis": tick.kpis,
+        "model": tick.model,
         "sink": {"id": "__sink__", "xyz": list(tick.sink_xyz)},
     }

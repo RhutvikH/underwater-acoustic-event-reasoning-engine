@@ -9,6 +9,12 @@ nodes:
   - {id: event.tanker_pass, type: EventType, label: "tanker passage"}
   - {id: event.passenger_pass, type: EventType, label: "passenger ship passage"}
   - {id: event.biological, type: EventType, label: "biological vocalization"}
+  - {id: event.whale_song, type: EventType, label: "mysticete song / moan"}
+  - {id: event.dolphin_click, type: EventType, label: "dolphin click train"}
+  - {id: event.sperm_click, type: EventType, label: "sperm-whale coda clicks"}
+  - {id: event.seal_vocal, type: EventType, label: "pinniped vocalization"}
+  - {id: event.fish_chorus, type: EventType, label: "fish chorus"}
+  - {id: event.toadfish_boatwhistle, type: EventType, label: "oyster toadfish boatwhistle"}
   - {id: event.geophony, type: EventType, label: "wind-wave geophony"}
   - {id: event.artifact, type: EventType, label: "sensor artifact"}
   - {id: event.ambient, type: EventType, label: "ambient noise"}
@@ -17,7 +23,12 @@ nodes:
   - {id: cause.vessel.cargo, type: VesselClass, label: "cargo ship", cues: {f_lo: 30, f_hi: 800, blade_hz: 25}}
   - {id: cause.vessel.tanker, type: VesselClass, label: "oil tanker", cues: {f_lo: 15, f_hi: 180, blade_hz: 12}}
   - {id: cause.vessel.passenger, type: VesselClass, label: "passenger ship", cues: {f_lo: 80, f_hi: 2500, blade_hz: 60}}
-  - {id: cause.taxon.odontocete, type: Taxon, label: "odontocete click-train", cues: {f_lo: 300, f_hi: 5000}}
+  - {id: cause.taxon.odontocete, type: Taxon, label: "odontocete click-train", cues: {f_lo: 2000, f_hi: 8000}}
+  - {id: cause.taxon.humpback, type: Taxon, label: "humpback / mysticete moan", cues: {f_lo: 80, f_hi: 400}}
+  - {id: cause.taxon.physeter, type: Taxon, label: "sperm whale (Physeter)", cues: {f_lo: 1500, f_hi: 4500}}
+  - {id: cause.taxon.pinniped, type: Taxon, label: "seal / sea lion", cues: {f_lo: 100, f_hi: 900}}
+  - {id: cause.taxon.sciaenid, type: Taxon, label: "croaker / toadfish chorus", cues: {f_lo: 180, f_hi: 700}}
+  - {id: cause.taxon.opsanus_tau, type: Taxon, label: "oyster toadfish (Opsanus tau) boatwhistle", cues: {f_lo: 80, f_hi: 500}}
   - {id: cause.env.wind_waves, type: Environment, label: "wind-driven surface noise", cues: {f_lo: 800, f_hi: 6000}, sea_state_min: 3}
   - {id: cause.env.rain, type: Environment, label: "rain noise", cues: {f_lo: 1000, f_hi: 8000}, sea_state_min: 3}
   - {id: cause.env.ambient, type: Environment, label: "Wenz ambient", cues: {f_lo: 20, f_hi: 1000}}
@@ -35,6 +46,30 @@ edges:
   - {src: event.tanker_pass, rel: caused_by, dst: cause.vessel.tanker}
   - {src: event.passenger_pass, rel: caused_by, dst: cause.vessel.passenger}
   - {src: event.biological, rel: caused_by, dst: cause.taxon.odontocete}
+  - {src: event.whale_song, rel: caused_by, dst: cause.taxon.humpback}
+  - {src: event.dolphin_click, rel: caused_by, dst: cause.taxon.odontocete}
+  - {src: event.sperm_click, rel: caused_by, dst: cause.taxon.physeter}
+  - {src: event.seal_vocal, rel: caused_by, dst: cause.taxon.pinniped}
+  - {src: event.fish_chorus, rel: caused_by, dst: cause.taxon.sciaenid}
+  - {src: event.toadfish_boatwhistle, rel: caused_by, dst: cause.taxon.opsanus_tau}
+  - {src: cause.taxon.opsanus_tau, rel: radiates, dst: event.toadfish_boatwhistle}
+  - {src: event.toadfish_boatwhistle, rel: observed_as, dst: event.fish_chorus}
+  - {src: event.toadfish_boatwhistle, rel: confusable_with, dst: event.fish_chorus}
+  - {src: event.toadfish_boatwhistle, rel: confusable_with, dst: event.geophony}
+  - {src: event.toadfish_boatwhistle, rel: confusable_with, dst: event.tug_pass}
+  - {src: cause.taxon.humpback, rel: radiates, dst: event.whale_song}
+  - {src: cause.taxon.odontocete, rel: radiates, dst: event.dolphin_click}
+  - {src: cause.taxon.physeter, rel: radiates, dst: event.sperm_click}
+  - {src: cause.taxon.pinniped, rel: radiates, dst: event.seal_vocal}
+  - {src: cause.taxon.sciaenid, rel: radiates, dst: event.fish_chorus}
+  - {src: event.whale_song, rel: observed_as, dst: event.biological}
+  - {src: event.dolphin_click, rel: observed_as, dst: event.biological}
+  - {src: event.sperm_click, rel: observed_as, dst: event.biological}
+  - {src: event.seal_vocal, rel: observed_as, dst: event.biological}
+  - {src: event.fish_chorus, rel: observed_as, dst: event.biological}
+  - {src: event.whale_song, rel: confusable_with, dst: event.seal_vocal}
+  - {src: event.fish_chorus, rel: confusable_with, dst: event.geophony}
+  - {src: event.dolphin_click, rel: confusable_with, dst: event.sperm_click}
   - {src: event.geophony, rel: caused_by, dst: cause.env.wind_waves}
   - {src: event.artifact, rel: caused_by, dst: cause.sensor.clipping}
   - {src: event.ambient, rel: caused_by, dst: cause.env.ambient}
@@ -56,3 +91,15 @@ edges:
   - {src: event.cargo_pass, rel: attacks, dst: cause.env.wind_waves, unless_sea_state_ge: 4}
   - {src: event.tanker_pass, rel: attacks, dst: cause.env.wind_waves, unless_sea_state_ge: 4}
   - {src: event.passenger_pass, rel: attacks, dst: cause.env.wind_waves, unless_sea_state_ge: 4}
+  - {src: event.whale_song, rel: attacks, dst: cause.env.rain, unless_sea_state_ge: 4}
+  - {src: event.whale_song, rel: attacks, dst: cause.env.wind_waves, unless_sea_state_ge: 4}
+  - {src: event.dolphin_click, rel: attacks, dst: cause.env.rain, unless_sea_state_ge: 3}
+  - {src: event.dolphin_click, rel: attacks, dst: cause.env.wind_waves, unless_sea_state_ge: 4}
+  - {src: event.sperm_click, rel: attacks, dst: cause.env.rain, unless_sea_state_ge: 3}
+  - {src: event.sperm_click, rel: attacks, dst: cause.env.wind_waves, unless_sea_state_ge: 4}
+  - {src: event.seal_vocal, rel: attacks, dst: cause.env.rain, unless_sea_state_ge: 3}
+  - {src: event.seal_vocal, rel: attacks, dst: cause.env.wind_waves, unless_sea_state_ge: 4}
+  - {src: event.fish_chorus, rel: attacks, dst: cause.env.rain, unless_sea_state_ge: 3}
+  - {src: event.fish_chorus, rel: attacks, dst: cause.env.wind_waves, unless_sea_state_ge: 5}
+  - {src: event.toadfish_boatwhistle, rel: attacks, dst: cause.env.rain, unless_sea_state_ge: 4}
+  - {src: event.toadfish_boatwhistle, rel: attacks, dst: cause.env.wind_waves, unless_sea_state_ge: 4}
